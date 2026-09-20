@@ -65,18 +65,20 @@
       .join('');
 
     const tags = [];
+    // 标题也作为首个标签（点击搜索片名）
+    if (item.title) tags.push([item.title, false, true]);
     (item.tags || []).forEach((t) => tags.push([t, false]));
     (item.categories || []).forEach((c) => tags.push([c, false]));
     (item.actors || []).forEach((a) => tags.push([a, true]));
     const uniq = [];
     const seen = new Set();
-    for (const [t, isActor] of tags) {
+    for (const [t, isActor, isTitle] of tags) {
       if (!t || seen.has(t)) continue;
       seen.add(t);
-      uniq.push([t, isActor]);
+      uniq.push([t, isActor, isTitle]);
     }
-    $('#tagList').innerHTML = uniq.slice(0, 24).map(([t, isActor]) =>
-      '<span class="tag-chip' + (isActor ? ' actor' : '') + '" data-q="' + esc(t) + '">' + esc(t) + '</span>'
+    $('#tagList').innerHTML = uniq.slice(0, 24).map(([t, isActor, isTitle]) =>
+      '<span class="tag-chip' + (isActor ? ' actor' : '') + (isTitle ? ' title-tag' : '') + '" data-q="' + esc(t) + '" title="' + esc(t) + '">' + esc(t) + '</span>'
     ).join('');
     $('#tagList').querySelectorAll('.tag-chip').forEach((el) => {
       el.addEventListener('click', () => {
@@ -374,6 +376,50 @@
     });
   }
 
+  /* ---------- 收藏 ---------- */
+  const FAV_KEY = 'tideflow_favs_v1';
+  function isFav(key) {
+    try { return !!JSON.parse(localStorage.getItem(FAV_KEY) || '{}')[key]; } catch (e) { return false; }
+  }
+  function renderFavBtn() {
+    const b = $('#favBtn');
+    b.classList.toggle('on', item && isFav(item.key));
+  }
+  function bindFavBtn() {
+    $('#favBtn').addEventListener('click', () => {
+      if (!item) return;
+      try {
+        const o = JSON.parse(localStorage.getItem(FAV_KEY) || '{}');
+        if (o[item.key]) {
+          delete o[item.key];
+          renderFavBtn();
+          showToastMsg('已取消收藏');
+        } else {
+          o[item.key] = item;
+          const keys = Object.keys(o);
+          if (keys.length > 50) delete o[keys[0]]; // 上限 50
+          localStorage.setItem(FAV_KEY, JSON.stringify(o));
+          renderFavBtn();
+          showToastMsg('已收藏，首页「收藏」可查看');
+        }
+      } catch (e) { /* ignore */ }
+    });
+  }
+  let favToastTimer = null;
+  function showToastMsg(msg) {
+    let el = $('#pToast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'pToast';
+      el.className = 'toast';
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(favToastTimer);
+    favToastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+  }
+
   /* ---------- 初始化 ---------- */
   async function init() {
     item = loadItem();
@@ -381,10 +427,13 @@
       $('#vTitle').textContent = '没有可播放的条目';
       $('#directBox').textContent = '请从首页选择一部影片进入播放页';
       $('#videoTools').style.display = 'none';
+      $('#favBtn').style.display = 'none';
       hideLoading();
       return;
     }
     renderInfo();
+    renderFavBtn();
+    bindFavBtn();
     renderStreams();
     bindTools();
     try {

@@ -153,6 +153,11 @@ header.site {
 .status-bar b { color: var(--amber-2); font-weight: 700; }
 .status-bar .warn { color: var(--amber); }
 .status-bar .err { color: var(--red); }
+.disclaim {
+  max-width: 1440px; margin: 0 auto; padding: 7px 20px 0;
+  font-size: 11.5px; color: var(--faint); line-height: 1.6;
+}
+.btn.active { border-color: var(--amber); color: var(--amber-2); background: var(--amber-soft); }
 
 /* ============ 视频网格 ============ */
 .grid {
@@ -316,6 +321,17 @@ header.site {
 .panel h3 { font-size: 13.5px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; color: var(--amber-2); }
 .panel h3 svg { width: 15px; height: 15px; }
 .v-title { font-size: 17px; font-weight: 700; line-height: 1.5; margin-bottom: 8px; }
+.v-title-row { display: flex; align-items: flex-start; gap: 10px; }
+.v-title-row .v-title { flex: 1; margin-bottom: 8px; }
+.fav-btn {
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 10px;
+  background: var(--bg-2); border: 1px solid var(--line); color: var(--muted);
+  display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.18s;
+}
+.fav-btn svg { width: 17px; height: 17px; }
+.fav-btn:hover { color: var(--amber-2); border-color: var(--amber); }
+.fav-btn.on { color: #1a1206; background: var(--amber); border-color: var(--amber); }
+.fav-btn.on svg { fill: currentColor; }
 .v-sub { font-size: 12.5px; color: var(--muted); margin-bottom: 14px; display: flex; gap: 12px; flex-wrap: wrap; }
 .meta-list { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; font-size: 13px; }
 .meta-list .k { color: var(--faint); white-space: nowrap; }
@@ -328,6 +344,10 @@ header.site {
 }
 .tag-chip:hover { color: var(--amber-2); border-color: var(--amber); }
 .tag-chip.actor { color: var(--amber-2); border-color: rgba(245, 177, 60, 0.45); background: var(--amber-soft); }
+.tag-chip.title-tag {
+  max-width: 240px; overflow: hidden; text-overflow: ellipsis; vertical-align: middle;
+  color: var(--text); border-color: var(--line-2); background: rgba(245, 177, 60, 0.08);
+}
 .direct-box {
   background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px;
   padding: 10px 12px; font-size: 12px; color: var(--muted);

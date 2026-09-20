@@ -19,6 +19,7 @@
     category: '全部',
     sourceOnly: '',
     classId: '',       // 源分类 tid
+    view: 'feed',      // feed | history | favs
     pages: {},          // 每个源已加载页数
     items: [],          // 全部已加载条目（去重后）
     seenKeys: new Set(),
@@ -61,6 +62,34 @@
     } catch (e) { /* ignore */ }
   }
 
+  /* ---------- 历史 / 收藏 ---------- */
+  const HIST_KEY = 'tideflow_history_v1';
+  const FAV_KEY = 'tideflow_favs_v1';
+  function loadHistory() {
+    try {
+      const arr = JSON.parse(localStorage.getItem(HIST_KEY) || '[]');
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) { return []; }
+  }
+  function recordHistory(it) {
+    try {
+      const arr = loadHistory();
+      const idx = arr.findIndex((x) => x.key === it.key);
+      if (idx > -1) arr.splice(idx, 1);
+      arr.unshift(it);
+      localStorage.setItem(HIST_KEY, JSON.stringify(arr.slice(0, 40)));
+    } catch (e) { /* ignore */ }
+  }
+  function loadFavs() {
+    try {
+      const o = JSON.parse(localStorage.getItem(FAV_KEY) || '{}');
+      return Object.values(o);
+    } catch (e) { return []; }
+  }
+  function isFav(key) {
+    try { return !!JSON.parse(localStorage.getItem(FAV_KEY) || '{}')[key]; } catch (e) { return false; }
+  }
+
   /* ---------- 提示 ---------- */
   let toastTimer = null;
   function showToast(msg, type) {
@@ -95,14 +124,19 @@
     });
   }
 
-  // 第二行分类：从源接口拉到的真实分类（tid）
+  // 第二行分类：从源接口拉到的真实分类（tid），跟随当前选择的源
   async function loadSourceCategories() {
     const box = $('#catChips2');
     if (!box) return;
-    const lunaId = SOURCES.find((s) => state.enabled.includes(s.id) && s.id.indexOf('luna:') === 0);
-    if (!lunaId) return;
+    let lunaDef = null;
+    if (state.sourceOnly && state.sourceOnly.indexOf('luna:') === 0) {
+      lunaDef = SOURCES.find((s) => s.id === state.sourceOnly);
+    } else {
+      lunaDef = SOURCES.find((s) => state.enabled.includes(s.id) && s.id.indexOf('luna:') === 0);
+    }
+    if (!lunaDef) { box.innerHTML = ''; return; }
     try {
-      const ad = ADAPTERS[lunaId.id];
+      const ad = ADAPTERS[lunaDef.id];
       if (!ad || !ad._api) return;
       const res = await fetchWithTimeout(lunaRelay(ad._api + '?ac=list'), CONFIG.requestTimeout);
       const j = await res.json();
@@ -112,6 +146,10 @@
         if (c.type_id && c.type_name) flat.push({ id: c.type_id, name: c.type_name });
         (c.list || []).forEach((sub) => { if (sub.type_id && sub.type_name) flat.push({ id: sub.type_id, name: sub.type_name }); });
       });
+      // 切换源后原分类失效，清掉
+      if (state.classId && !flat.some((o) => String(o.id) === String(state.classId))) {
+        state.classId = '';
+      }
       const opts = [{ id: '', name: '全部' }].concat(flat.slice(0, 24));
       box.innerHTML = opts.map((o) =>
         '<span class="chip' + (String(state.classId) === String(o.id) ? ' active' : '') + '" data-tid="' + o.id + '">' + esc(o.name) + '</span>'
@@ -140,8 +178,10 @@
       el.addEventListener('click', () => {
         state.sourceOnly = el.dataset.src;
         state.query = '';
+        state.classId = '';
         $('#searchInput').value = '';
         renderChips();
+        loadSourceCategories();
         loadFeed(true);
       });
     });
@@ -381,6 +421,7 @@
   function openPlayer(it) {
     try {
       localStorage.setItem(CONFIG.currentKey, JSON.stringify(it));
+      recordHistory(it);
     } catch (e) { /* ignore */ }
     location.href = 'player.html';
   }
@@ -388,10 +429,53 @@
     state.query = q;
     state.category = '全部';
     state.classId = '';
+    state.view = 'feed';
+    $('#histBtn').classList.remove('active');
+    $('#favBtn').classList.remove('active');
     $('#searchInput').value = q;
     renderChips();
     loadFeed(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  /* ---------- 历史 / 收藏视图 ---------- */
+  function renderViewList(list, emptyMsg) {
+    loadmoreWrap.style.display = 'none';
+    if (!list.length) {
+      grid.innerHTML =
+        '<div class="empty-tip" style="grid-column:1/-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5v5M14.5 9.5v5"/></svg>' +
+        '<p>' + esc(emptyMsg) + '</p></div>';
+      return;
+    }
+    renderCards(list, true);
+  }
+  function updateViewStatus(title) {
+    statusBar.innerHTML = '<span>版本号：v' + CONFIG.version + '</span><span>' + esc(title) + '</span>';
+  }
+  function backToFeed() {
+    state.view = 'feed';
+    $('#histBtn').classList.remove('active');
+    $('#favBtn').classList.remove('active');
+    loadFeed(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  function bindViewButtons() {
+    $('#histBtn').addEventListener('click', () => {
+      if (state.view === 'history') { backToFeed(); return; }
+      state.view = 'history';
+      $('#histBtn').classList.add('active');
+      $('#favBtn').classList.remove('active');
+      updateViewStatus('播放历史');
+      renderViewList(loadHistory(), '还没有播放记录 —— 去首页看几部，它们会出现在这里');
+    });
+    $('#favBtn').addEventListener('click', () => {
+      if (state.view === 'favs') { backToFeed(); return; }
+      state.view = 'favs';
+      $('#favBtn').classList.add('active');
+      $('#histBtn').classList.remove('active');
+      updateViewStatus('我的收藏');
+      renderViewList(loadFavs(), '还没有收藏 —— 在播放页点右上角星标收藏');
+    });
   }
 
   /* ---------- 搜索 ---------- */
@@ -410,6 +494,8 @@
   function bindSourceSelect() {
     $('#sourceSelect').addEventListener('change', (e) => {
       state.sourceOnly = e.target.value;
+      state.classId = '';
+      loadSourceCategories();
       loadFeed(true);
     });
   }
@@ -503,6 +589,7 @@
     }
     saveEnabled();
     renderSourceModal();
+    loadSourceCategories();
   }
 
   /* 扫描体检 */
@@ -570,6 +657,7 @@
     }
     $('#sourceModal').classList.remove('open');
     renderSourceSelect();
+    loadSourceCategories();
     loadFeed(true);
     showToast('已应用源配置，内容已刷新', 'ok');
   }
@@ -627,6 +715,7 @@
     bindFilterSwitch();
     bindLoadMore();
     bindSourceModal();
+    bindViewButtons();
 
     // 支持 #q= 直达搜索（部署平台会剥掉 ?query，改用 hash）
     let q = new URLSearchParams(location.search).get('q');
