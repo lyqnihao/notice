@@ -20,6 +20,8 @@
     sourceOnly: '',
     classId: '',       // 源分类 tid
     view: 'feed',      // feed | history | favs
+    manage: false,     // 历史/收藏管理（多选删除）模式
+    selected: new Set(),
     pages: {},          // 每个源已加载页数
     items: [],          // 全部已加载条目（去重后）
     seenKeys: new Set(),
@@ -197,13 +199,10 @@
     sel.value = state.sourceOnly;
   }
 
-  /* ---------- 过滤开关 ---------- */
+  /* ---------- 过滤开关（位于更新源面板） ---------- */
   function renderFilterSwitch() {
     const check = $('#filterCheck');
-    const sw = $('#filterSwitch');
-    check.checked = state.filterOn;
-    sw.classList.toggle('off', !state.filterOn);
-    $('#filterDot').style.boxShadow = state.filterOn ? '' : 'none';
+    if (check) check.checked = state.filterOn;
   }
 
   /* ---------- 数据获取 ---------- */
@@ -382,12 +381,14 @@
     }).join('');
 
     const badge = it.source + ((it.streams && it.streams.length > 1) ? ' ×' + it.streams.length : '');
+    if (opts.selectable && state.selected.has(it.key)) art.classList.add('selected');
     art.innerHTML =
       '<div class="thumb' + (it.thumb ? '' : ' noimg') + '">' +
         (it.thumb ? '<img loading="lazy" src="' + escAttr(it.thumb) + '" alt="" onerror="this.parentElement.classList.add(\'noimg\');this.remove()">' : '') +
         '<div class="thumb-ph">' + esc((it.title || '?').charAt(0).toUpperCase()) + '</div>' +
         '<span class="src-badge">' + esc(badge) + '</span>' +
-        (opts.deletable ? '<button class="del-btn" title="从列表中移除">×</button>' : '') +
+        (opts.selectable ? '<span class="sel-check">' + (state.selected.has(it.key) ? '✓' : '') + '</span>' : '') +
+        (opts.onDelete && !opts.selectable ? '<button class="del-btn" title="从列表中移除">×</button>' : '') +
         (it.duration ? '<span class="dur-badge">' + fmtDur(it.duration) + '</span>' : '') +
         ((it.episodes && it.episodes.length > 1) ? '<span class="dur-badge ep-badge">' + it.episodes.length + '集</span>' : '') +
         '<span class="play-hint"><span class="ph-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="#221503"><path d="M8 5v14l11-7z"/></svg></span></span>' +
@@ -407,6 +408,16 @@
       if (e.target.closest('.del-btn')) {
         e.stopPropagation();
         if (opts.onDelete) opts.onDelete(it);
+        return;
+      }
+      if (opts.selectable) {
+        e.stopPropagation();
+        if (state.selected.has(it.key)) state.selected.delete(it.key);
+        else state.selected.add(it.key);
+        art.classList.toggle('selected', state.selected.has(it.key));
+        const chk = art.querySelector('.sel-check');
+        if (chk) chk.textContent = state.selected.has(it.key) ? '✓' : '';
+        updateViewStatus(state.view === 'history' ? '播放历史' : '我的收藏', state.view === 'history' ? clearHistory : clearFavs);
         return;
       }
       openPlayer(it);
@@ -447,9 +458,9 @@
 
   /* ---------- 历史 / 收藏视图 ---------- */
   function viewOpts(view) {
-    if (view === 'history') return { deletable: true, onDelete: removeHistory };
-    if (view === 'favs') return { deletable: true, onDelete: removeFav };
-    return {};
+    const opts = { onDelete: view === 'history' ? removeHistory : removeFav };
+    if (state.manage) opts.selectable = true;
+    return opts;
   }
   function renderViewList(list, emptyMsg, view) {
     loadmoreWrap.style.display = 'none';
@@ -462,10 +473,69 @@
     renderCards(list, true, viewOpts(view));
   }
   function updateViewStatus(title, clearFn) {
+    if (state.manage) {
+      statusBar.innerHTML = '<span>版本号：v' + CONFIG.version + '</span><span>' + esc(title) + '（管理）</span>' +
+        '<button class="btn ghost mini" id="selAllBtn">全选</button>' +
+        '<button class="btn ghost mini danger" id="selDelBtn">删除选中（' + state.selected.size + '）</button>' +
+        '<button class="btn ghost mini" id="exitManageBtn">完成</button>';
+      $('#selAllBtn').addEventListener('click', () => {
+        const all = state.view === 'history' ? loadHistory() : loadFavs();
+        state.selected.clear();
+        all.forEach((x) => state.selected.add(x.key));
+        updateViewStatus(title, clearFn);
+        reapplyManageClass();
+      });
+      $('#selDelBtn').addEventListener('click', () => {
+        if (!state.selected.size) { showToast('还没有选中任何条目', 'err'); return; }
+        if (state.view === 'history') removeHistoryByKeys([...state.selected]);
+        else removeFavByKeys([...state.selected]);
+      });
+      $('#exitManageBtn').addEventListener('click', () => { state.manage = false; state.selected.clear(); renderCurrentView(); });
+      return;
+    }
     statusBar.innerHTML = '<span>版本号：v' + CONFIG.version + '</span><span>' + esc(title) + '</span>' +
+      '<button class="btn ghost mini" id="manageBtn">管理</button>' +
       (clearFn ? '<button class="btn ghost mini" id="clearViewBtn">清空全部</button>' : '');
+    const m = $('#manageBtn');
+    if (m) m.addEventListener('click', () => { state.manage = true; renderCurrentView(); });
     const b = $('#clearViewBtn');
     if (b) b.addEventListener('click', clearFn);
+  }
+  function renderCurrentView() {
+    if (state.view === 'history') {
+      updateViewStatus('播放历史', clearHistory);
+      renderViewList(loadHistory(), '还没有播放记录 —— 去首页看几部，它们会出现在这里', 'history');
+    } else {
+      updateViewStatus('我的收藏', clearFavs);
+      renderViewList(loadFavs(), '还没有收藏 —— 在播放页点右上角星标收藏', 'favs');
+    }
+  }
+  function reapplyManageClass() {
+    grid.querySelectorAll('.card').forEach((c) => {
+      const on = state.selected.has(c.dataset.key);
+      c.classList.toggle('selected', on);
+      const chk = c.querySelector('.sel-check');
+      if (chk) chk.textContent = on ? '✓' : '';
+    });
+  }
+  function removeHistoryByKeys(keys) {
+    try {
+      const arr = loadHistory().filter((x) => !keys.includes(x.key));
+      localStorage.setItem(HIST_KEY, JSON.stringify(arr));
+    } catch (e) { /* ignore */ }
+    state.selected.clear();
+    showToast('已删除选中 ' + keys.length + ' 条历史', 'ok');
+    renderCurrentView();
+  }
+  function removeFavByKeys(keys) {
+    try {
+      const o = JSON.parse(localStorage.getItem(FAV_KEY) || '{}');
+      keys.forEach((k) => delete o[k]);
+      localStorage.setItem(FAV_KEY, JSON.stringify(o));
+    } catch (e) { /* ignore */ }
+    state.selected.clear();
+    showToast('已取消收藏 ' + keys.length + ' 条', 'ok');
+    renderCurrentView();
   }
   function removeHistory(it) {
     try {
@@ -473,12 +543,12 @@
       localStorage.setItem(HIST_KEY, JSON.stringify(arr));
     } catch (e) { /* ignore */ }
     showToast('已从历史移除', 'ok');
-    renderViewList(loadHistory(), '还没有播放记录 —— 去首页看几部，它们会出现在这里', 'history');
+    renderCurrentView();
   }
   function clearHistory() {
     try { localStorage.removeItem(HIST_KEY); } catch (e) { /* ignore */ }
     showToast('播放历史已清空', 'ok');
-    renderViewList(loadHistory(), '还没有播放记录 —— 去首页看几部，它们会出现在这里', 'history');
+    renderCurrentView();
   }
   function removeFav(it) {
     try {
@@ -487,15 +557,17 @@
       localStorage.setItem(FAV_KEY, JSON.stringify(o));
     } catch (e) { /* ignore */ }
     showToast('已取消收藏', 'ok');
-    renderViewList(loadFavs(), '还没有收藏 —— 在播放页点右上角星标收藏', 'favs');
+    renderCurrentView();
   }
   function clearFavs() {
     try { localStorage.removeItem(FAV_KEY); } catch (e) { /* ignore */ }
     showToast('收藏已清空', 'ok');
-    renderViewList(loadFavs(), '还没有收藏 —— 在播放页点右上角星标收藏', 'favs');
+    renderCurrentView();
   }
   function backToFeed() {
     state.view = 'feed';
+    state.manage = false;
+    state.selected.clear();
     $('#histBtn').classList.remove('active');
     $('#favBtn').classList.remove('active');
     loadFeed(true);
@@ -505,6 +577,8 @@
     $('#histBtn').addEventListener('click', () => {
       if (state.view === 'history') { backToFeed(); return; }
       state.view = 'history';
+      state.manage = false;
+      state.selected.clear();
       $('#histBtn').classList.add('active');
       $('#favBtn').classList.remove('active');
       updateViewStatus('播放历史', clearHistory);
@@ -513,6 +587,8 @@
     $('#favBtn').addEventListener('click', () => {
       if (state.view === 'favs') { backToFeed(); return; }
       state.view = 'favs';
+      state.manage = false;
+      state.selected.clear();
       $('#favBtn').classList.add('active');
       $('#histBtn').classList.remove('active');
       updateViewStatus('我的收藏', clearFavs);
@@ -542,9 +618,10 @@
     });
   }
 
-  /* ---------- 过滤开关 ---------- */
+  /* ---------- 过滤开关（位于更新源面板） ---------- */
   function bindFilterSwitch() {
     const check = $('#filterCheck');
+    if (!check) return;
     check.addEventListener('change', () => {
       state.filterOn = check.checked;
       saveFilter();
@@ -707,6 +784,7 @@
   function bindSourceModal() {
     $('#openSourcesBtn').addEventListener('click', () => {
       renderSourceModal();
+      renderFilterSwitch();
       $('#sourceModal').classList.add('open');
     });
     $('#closeSourcesBtn').addEventListener('click', () => $('#sourceModal').classList.remove('open'));

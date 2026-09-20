@@ -45,15 +45,6 @@
       </svg>
       更新源
     </button>
-
-    <label class="filter-switch" id="filterSwitch" title="开启后自动过滤成人内容（安全模式）">
-      <span class="dot" id="filterDot"></span>
-      <span class="txt">成人内容过滤</span>
-      <span class="switch">
-        <input type="checkbox" id="filterCheck" checked>
-        <span class="track"></span>
-      </span>
-    </label>
   </div>
 </header>
 
@@ -86,7 +77,14 @@
       <h2>源池管理 · 扫描 / 切换 / 发现新源</h2>
       <button class="close" id="closeSourcesBtn" aria-label="关闭">&times;</button>
     </div>
-    <div style="padding:0 20px 12px;display:flex;gap:8px">
+    <div class="adf-row" style="padding:12px 20px 4px">
+      <span>成人内容过滤<span class="note">开启后自动过滤成人内容（安全模式），并隐藏成人源选项</span></span>
+      <span class="switch">
+        <input type="checkbox" id="filterCheck" checked>
+        <span class="track"></span>
+      </span>
+    </div>
+    <div style="padding:8px 20px 12px;display:flex;gap:8px">
       <input id="customConfigUrl" type="text" placeholder="粘贴自定义采集配置 JSON 地址（如 GitHub raw），替换整个源池" style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:13px">
       <button class="btn ghost" id="loadCustomConfigBtn">加载并更新源</button>
     </div>
@@ -101,8 +99,8 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="js/config.js?v=1.3.2"></script>
-<script src="js/sources.js?v=1.3.2"></script>
-<script src="js/app.js?v=1.3.2"></script>
+<script src="js/config.js?v=1.3.3"></script>
+<script src="js/sources.js?v=1.3.3"></script>
+<script src="js/app.js?v=1.3.3"></script>
 </body>
 </html>

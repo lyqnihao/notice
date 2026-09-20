@@ -3,8 +3,27 @@
 - 应用名：潮汐TIDEFLOW
 - app_id：`app_17eckqrc16z`
 - 线上地址（固定，复发不变）：https://4m2y5f3566jsm.aiforce.cloud/app/app_17eckqrc16z
+- 镜像站 app_id：`app_17egtdkh958`（备用地址，内容与主站同步）
+- 镜像站地址：https://4m2y5f3566jsm.aiforce.cloud/app/app_17egtdkh958
 
-## 重新部署（改完代码后）
+## 兼容 Cloudflare / GitHub Pages（纯静态站）
+
+本站是**纯静态前端**（HTML/CSS/JS，无后端、无构建），所有资源引用和页面跳转都是相对路径，分类搜索用 `#q=` hash 路由 —— 因此可以原样部署到任意静态托管，**无需改动任何代码**：
+
+### Cloudflare Pages（或 Cloudflare Drop）
+1. 打开 https://dash.cloudflare.com 或 https://www.cloudflare.com/drop/
+2. 把 `tideflow/` 目录（或代码包解压后的文件夹）拖进 Drop，或连 Git 仓库一键导入
+3. 部署即得 `https://<项目名>.pages.dev` 固定地址；后续改代码推到仓库 / 重新拖包即自动更新
+
+### GitHub Pages
+1. 把 `tideflow/` 目录内容推到仓库根目录（或 `/docs` 目录，在 Settings → Pages 里选分支+目录）
+2. 项目页地址为 `https://<用户名>.github.io/<仓库名>/`，个人页为 `https://<用户名>.github.io/`
+3. 相对路径已保证子路径部署也能正常工作（图片/JS/页面跳转全部按相对路径解析）
+
+### 版本号
+每次修订只需同步三处版本号：`js/config.js` 的 `version`、`index.html` 与 `player.html` 的 `?v=` 参数（用于强刷缓存）。
+
+## 重新部署（lark-cli，当前主链路）
 
 ```bash
 cd /home/user/Doubao/chats/38442521609353474
