@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>潮汐 TIDEFLOW · 全网免费视频聚合</title>
+<meta name="description" content="潮汐 TIDEFLOW —— 多源免费视频聚合站：NASA 影像 / 开源电影 / 公版影视，直链播放、零广告、可开关成人内容过滤。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b1020'/%3E%3Cpath d='M4 18c4-6 7-6 11 0s7 6 11 0' stroke='%23f5b13c' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='24' cy='20' r='2.4' fill='%23ffd27a'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="site">
+  <div class="header-in">
+    <a class="logo" href="index.html" aria-label="潮汐 TIDEFLOW 首页">
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="7" fill="#141b33"/>
+        <path d="M4 18c4-6 7-6 11 0s7 6 11 0" stroke="#f5b13c" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <circle cx="24" cy="20" r="2.4" fill="#ffd27a"/>
+      </svg>
+      <span>
+        <span class="logo-name">潮汐 TIDEFLOW</span>
+        <div class="logo-sub">全网免费视频聚合 · 直链播放</div>
+      </span>
+    </a>
+
+    <div class="search-wrap">
+      <input id="searchInput" type="search" placeholder="搜索：太空 / 地球 / 动画 / 片名…" autocomplete="off">
+      <button class="btn primary" id="searchBtn">搜索</button>
+    </div>
+
+    <button class="btn" id="openSourcesBtn" title="扫描、检测并切换视频源">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/>
+      </svg>
+      更新源
+    </button>
+
+    <label class="filter-switch" id="filterSwitch" title="开启后自动过滤成人内容（安全模式）">
+      <span class="dot" id="filterDot"></span>
+      <span class="txt">成人内容过滤</span>
+      <span class="switch">
+        <input type="checkbox" id="filterCheck" checked>
+        <span class="track"></span>
+      </span>
+    </label>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="chips" id="chips"></div>
+  <div class="select-wrap">
+    <select id="sourceSelect" title="只看某个来源">
+      <option value="">全部来源</option>
+    </select>
+  </div>
+</div>
+
+<div class="chips cat-chips" id="catChips"></div>
+<div class="chips cat-chips" id="catChips2"></div>
+
+<div class="status-bar" id="statusBar"></div>
+
+<main class="grid" id="grid"></main>
+
+<div class="loadmore-wrap" id="loadmoreWrap" style="display:none">
+  <div class="tip" id="loadmoreTip"></div>
+  <button class="btn" id="loadMoreBtn">加载更多</button>
+</div>
+
+<!-- ===== 更新源面板 ===== -->
+<div class="modal-mask" id="sourceModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>源池管理 · 扫描 / 切换 / 发现新源</h2>
+      <button class="close" id="closeSourcesBtn" aria-label="关闭">&times;</button>
+    </div>
+    <div style="padding:0 20px 12px;display:flex;gap:8px">
+      <input id="customConfigUrl" type="text" placeholder="粘贴自定义采集配置 JSON 地址（如 GitHub raw），替换整个源池" style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:13px">
+      <button class="btn ghost" id="loadCustomConfigBtn">加载并更新源</button>
+    </div>
+    <div class="modal-body" id="sourceBody"></div>
+    <div class="modal-foot">
+      <button class="btn ghost" id="scanAllBtn">扫描体检全部源</button>
+      <button class="btn ghost" id="bestComboBtn">一键用最优组合</button>
+      <button class="btn primary" id="applySourcesBtn">应用并刷新内容</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/config.js?v=1.3.0"></script>
+<script src="js/sources.js?v=1.3.0"></script>
+<script src="js/app.js?v=1.3.0"></script>
+</body>
+</html>
