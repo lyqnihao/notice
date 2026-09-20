@@ -392,6 +392,7 @@
         const o = JSON.parse(localStorage.getItem(FAV_KEY) || '{}');
         if (o[item.key]) {
           delete o[item.key];
+          localStorage.setItem(FAV_KEY, JSON.stringify(o)); // 关键：删除后写回，否则取消不生效
           renderFavBtn();
           showToastMsg('已取消收藏');
         } else {

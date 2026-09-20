@@ -5,7 +5,7 @@
 const CONFIG = {
   name: '潮汐 TIDEFLOW',
   slogan: '全网免费视频聚合 · 直链播放 · 零广告',
-  version: '1.3.1',
+  version: '1.3.2',
   maxActive: 5,                // 同时启用的源上限（高速通道）
   storeKey: 'tideflow_sources_v1',
   filterKey: 'tideflow_filter_v1',
