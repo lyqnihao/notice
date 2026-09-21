@@ -135,6 +135,7 @@
         btn.addEventListener('click', () => {
           curStream = +btn.dataset.i;
           curEp = 0;
+          epPage = 0;
           $('#streamList').querySelectorAll('.ep-chip').forEach((x) => x.classList.remove('active'));
           btn.classList.add('active');
           loadStream();
@@ -157,15 +158,37 @@
     play().catch(() => { /* ignore */ });
   }
 
+  /* ---------- 选集（分页渲染，支持几百集的短剧/长剧） ---------- */
+  const EP_PAGE_SIZE = 60;
+  let epPage = 0;
+
   function renderEpisodes() {
     const eps = (streams[curStream] && streams[curStream].episodes) || [];
     const panel = $('#epPanel');
     if (eps.length < 2) { panel.style.display = 'none'; curEp = 0; return; }
     panel.style.display = 'block';
     curEp = (resumeEp >= 0 && resumeEp < eps.length) ? resumeEp : 0;
-    $('#epList').innerHTML = eps.map((e, i) =>
-      '<button class="ep-chip' + (i === curEp ? ' active' : '') + '" data-i="' + i + '">' + esc(e.label) + '</button>'
-    ).join('');
+    const total = eps.length;
+    const totalPages = Math.max(1, Math.ceil(total / EP_PAGE_SIZE));
+    if (epPage >= totalPages) epPage = totalPages - 1;
+    if (epPage < 0) epPage = 0;
+    const start = epPage * EP_PAGE_SIZE;
+    const page = eps.slice(start, start + EP_PAGE_SIZE);
+    const listHtml = page.map((e, k) => {
+      const i = start + k;
+      return '<button class="ep-chip' + (i === curEp ? ' active' : '') + '" data-i="' + i + '">' + esc(e.label) + '</button>';
+    }).join('');
+    $('#epList').innerHTML = listHtml;
+    // 分页信息与控件
+    const pager = $('#epPager');
+    if (totalPages > 1) {
+      pager.style.display = 'flex';
+      $('#epPageTxt').textContent = '第 ' + (epPage + 1) + '/' + totalPages + ' 页 · 共 ' + total + ' 集';
+      $('#epPrev').disabled = epPage === 0;
+      $('#epNext').disabled = epPage >= totalPages - 1;
+    } else {
+      pager.style.display = 'none';
+    }
     $('#epList').querySelectorAll('.ep-chip').forEach((btn) => {
       btn.addEventListener('click', () => {
         const i = +btn.dataset.i;
@@ -177,6 +200,18 @@
         $('#adfNote').textContent = '';
         play().catch(() => { /* ignore */ });
       });
+    });
+  }
+
+  function bindEpPager() {
+    const prev = $('#epPrev');
+    const next = $('#epNext');
+    if (!prev || !next) return;
+    prev.addEventListener('click', () => {
+      if (epPage > 0) { epPage--; renderEpisodes(); }
+    });
+    next.addEventListener('click', () => {
+      epPage++; renderEpisodes();
     });
   }
 
@@ -335,7 +370,8 @@
     if (!isFinite(t) || !isFinite(d) || d <= 0 || t < 3) return;
     try {
       const arr = JSON.parse(localStorage.getItem('tideflow_history_v1') || '[]');
-      const snap = Object.assign({}, item, { st: curStream, ep: curEp, time: t, duration: d });
+      // 历史/收藏只保留前 500 集，避免几千集短剧把 localStorage 撑爆
+      const snap = Object.assign({}, item, { episodes: (item.episodes || []).slice(0, 500), st: curStream, ep: curEp, time: t, duration: d });
       const idx = arr.findIndex((x) => x.key === item.key);
       if (idx > -1) arr.splice(idx, 1);
       arr.unshift(snap);
@@ -343,7 +379,7 @@
       // 已收藏的条目同步进度
       const fo = JSON.parse(localStorage.getItem('tideflow_favs_v1') || '{}');
       if (fo[item.key]) {
-        fo[item.key] = Object.assign({}, fo[item.key], { st: curStream, ep: curEp, time: t, duration: d });
+        fo[item.key] = Object.assign({}, fo[item.key], { episodes: (item.episodes || []).slice(0, 500), st: curStream, ep: curEp, time: t, duration: d });
         localStorage.setItem('tideflow_favs_v1', JSON.stringify(fo));
       }
     } catch (e) { /* ignore */ }
@@ -359,6 +395,23 @@
 
   /* ---------- 重试 / 外部播放 ---------- */
   function bindTools() {
+    // 快进 / 快退：10秒 / 1分钟 / 10分钟
+    const seekRow = $('#seekRow');
+    if (seekRow) {
+      seekRow.querySelectorAll('.seek-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const d = Number(btn.dataset.d) || 0;
+          if (!video || !isFinite(video.duration) || video.duration <= 0) {
+            showLoading('视频尚未就绪，无法定位');
+            setTimeout(hideLoading, 1200);
+            return;
+          }
+          const nt = Math.min(Math.max(video.currentTime + d, 0), video.duration);
+          video.currentTime = nt;
+          if (video.paused) video.play().catch(() => { /* ignore */ });
+        });
+      });
+    }
     $('#retryBtn').addEventListener('click', async () => {
       $('#adfNote').textContent = '';
       try {
@@ -507,6 +560,7 @@
     renderFavBtn();
     bindFavBtn();
     renderStreams();
+    bindEpPager();
     bindTools();
     try {
       await resolveDirect();

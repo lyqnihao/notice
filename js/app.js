@@ -331,8 +331,16 @@
         }
       }
 
-      // 轮转混合排布（保证多源内容交错出现）
-      const merged = roundRobin(state.items.slice(), defs.map((d) => d.id));
+      // 搜索模式按相关度排序（精确/前缀/包含优先），浏览模式轮转混合排布（多源内容交错）
+      let merged;
+      if (state.query && reset) {
+        const q = state.query.trim().toLowerCase();
+        const scored = state.items.slice().map((it, idx) => ({ it, idx, s: searchScore(it, q) }));
+        scored.sort((a, b) => (b.s - a.s) || (a.idx - b.idx));
+        merged = scored.map((x) => x.it);
+      } else {
+        merged = roundRobin(state.items.slice(), defs.map((d) => d.id));
+      }
 
       const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
       updateStatus({ total: state.items.length, fails, elapsed, counts: all.map(({ src, items }) => [src.name, items.length]), totals });
@@ -357,6 +365,16 @@
   /* LunaTV 同片名去重 key：去掉空白/标点后小写 */
   function lunaDedupKey(it) {
     return (it.title || '').replace(/[\s\u3000:：《》"'·.\-!！?？,，。]/g, '').toLowerCase();
+  }
+
+  /* 搜索结果相关度：标题完全相等 > 前缀 > 包含 > 标签/演员命中 */
+  function searchScore(it, q) {
+    const t = (it.title || '').toLowerCase();
+    if (t === q) return 100;
+    if (t.startsWith(q)) return 60;
+    if (t.includes(q)) return 30;
+    const tagHit = (it.tags || []).concat(it.actors || []).some((x) => String(x).toLowerCase().includes(q));
+    return tagHit ? 15 : 0;
   }
 
   function roundRobin(list, order) {    const buckets = {};
@@ -695,7 +713,19 @@
     const doSearch = () => {
       const q = input.value.trim();
       state.query = q;
+      state.view = 'feed';
+      // 搜索回到全局：清掉源聚焦/分类，避免只在当前源里搜导致结果少而"不准"
+      state.sourceOnly = '';
+      state.classId = '';
+      state.classIsTop = false;
+      state.className = '';
+      $('#histBtn').classList.remove('active');
+      $('#favBtn').classList.remove('active');
+      renderChips();
+      renderSourceSelect();
+      loadSourceCategories();
       loadFeed(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     };
     $('#searchBtn').addEventListener('click', doSearch);
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });

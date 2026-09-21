@@ -384,7 +384,7 @@ function lunaSiteAdapter(site) {
       this._classifiedEmpty = collected.length === 0; // 分类筛空标记（供前端降级回退）
       const out = [];
       for (const v of collected) {
-        const eps = lunaEpisodes(v).slice(0, 40);
+        const eps = lunaEpisodes(v).slice(0, 3000);
         if (!eps.length || !v.vod_name) continue;
         out.push({
           key: 'luna:' + site.key + ':' + v.vod_id,
@@ -430,7 +430,7 @@ function lunaSiteAdapter(site) {
       }
       const out = [];
       for (const v of list) {
-        const eps = lunaEpisodes(v).slice(0, 40);
+        const eps = lunaEpisodes(v).slice(0, 3000);
         if (!eps.length || !v.vod_name) continue;
         out.push({
           key: 'luna:' + site.key + ':' + v.vod_id,
