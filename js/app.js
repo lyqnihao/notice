@@ -933,6 +933,25 @@
       }
     });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $('#sourceModal').classList.remove('open'); });
+
+    // 自定义配置源更新完成后：清理失效源的状态（启用列表/聚焦/分页/体检缓存）并重渲染
+    window.__LUNA_RELOADED__ = function () {
+      state.enabled = state.enabled.filter((id) => SOURCES.some((s) => s.id === id));
+      if (state.sourceOnly && !SOURCES.some((s) => s.id === state.sourceOnly)) state.sourceOnly = '';
+      state.classId = '';
+      state.classIsTop = false;
+      state.className = '';
+      state.pages = {};
+      state.scanResults = {};
+      state.items = [];
+      state.seenKeys.clear();
+      saveEnabled();
+      renderSourceModal();
+      renderChips();
+      renderSourceSelect();
+      loadSourceCategories();
+      loadFeed(true);
+    };
     $('#exportBtn').addEventListener('click', exportData);
     $('#importBtn').addEventListener('click', () => importData($('#importBox').value.trim()));
     $('#importFileBtn').addEventListener('click', () => $('#importFile').click());

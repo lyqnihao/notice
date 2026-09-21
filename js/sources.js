@@ -305,11 +305,32 @@ async function lunaLoadConfig() {
   const res = await fetchWithTimeout(url, 10000);
   if (!res.ok) throw new Error('配置 HTTP ' + res.status);
   const data = await res.json();
-  const sites = (data && data.api_site) || {};
-  // NSFW 内容由页面上的安全开关控制，不在源层面过滤
-  _lunaCfg = Object.entries(sites)
-    .map(([k, v]) => ({ key: k, name: String(v.name || k).replace(/[🎬\s\-–—]/g, ''), api: String(v.api || '') }))
-    .filter((s) => s.api);
+  // 兼容多种订阅格式：
+  //  A) { api_site: { key: {name, api, detail} } }          —— LunaTV-config
+  //  B) [ {id, name, baseUrl, ...} ]                        —— KVideo
+  //  C) { videoSources: [ {id, name, key, url, ...} ] }     —— NextTV
+  // 注意：Array 的 typeof 也是 'object'，必须先判数组再判对象
+  const raw = [];
+  if (Array.isArray(data)) {
+    raw.push.apply(raw, data);
+  } else if (data && typeof data === 'object') {
+    if (data.api_site && typeof data.api_site === 'object') {
+      Object.entries(data.api_site).forEach(([k, v]) => raw.push(Object.assign({ key: k }, v)));
+    }
+    if (Array.isArray(data.videoSources)) raw.push.apply(raw, data.videoSources);
+  }
+  const seen = new Set();
+  _lunaCfg = raw
+    .map((v) => ({
+      key: String(v.key || v.id || v.site || ''),
+      name: String(v.name || v.title || v.key || v.id || '').replace(/[🎬\s\-–—]/g, ''),
+      api: String(v.api || v.baseUrl || v.url || ''),
+    }))
+    .filter((s) => {
+      if (!s.key || !s.api || seen.has(s.key)) return false;
+      seen.add(s.key);
+      return true;
+    });
   _lunaCfgUrl = url;
   _lunaCfgAt = Date.now();
   return _lunaCfg;
@@ -502,9 +523,13 @@ window.__LUNA_RELOAD__ = async function (customUrl) {
   _lunaCfg = null; _lunaCfgAt = 0; _lunaCfgUrl = null;
   _lunaPool = null; _lunaPoolAt = 0;
   const all = await lunaLoadConfig();
-  // 清掉旧的 luna 注册（保留 nasa 等内置）
+  // 清掉旧的 luna 注册。ADAPTERS 必须同步删除——否则下方 if (ADAPTERS[sid]) continue
+  // 会跳过全部注册，导致 SOURCES 里 luna 源全空（源池被清空的 bug）
   for (let i = SOURCES.length - 1; i >= 0; i--) {
-    if (SOURCES[i].id.indexOf('luna:') === 0) SOURCES.splice(i, 1);
+    if (SOURCES[i].id.indexOf('luna:') === 0) {
+      delete ADAPTERS[SOURCES[i].id];
+      SOURCES.splice(i, 1);
+    }
   }
   for (const s of all) {
     const sid = 'luna:' + s.key;
@@ -515,6 +540,10 @@ window.__LUNA_RELOAD__ = async function (customUrl) {
       candidate: true,
     });
     ADAPTERS[sid] = lunaSiteAdapter(s);
+  }
+  // 通知前端清理失效源的状态（启用列表/分页/体检缓存等）
+  if (window.__LUNA_RELOADED__) {
+    try { window.__LUNA_RELOADED__(); } catch (e) { /* ignore */ }
   }
   return all.length;
 };
