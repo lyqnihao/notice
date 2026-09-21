@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>潮汐 TIDEFLOW · 全网免费视频聚合</title>
 <meta name="description" content="潮汐 TIDEFLOW —— 多源免费视频聚合站：NASA 影像 / 开源电影 / 公版影视，直链播放、零广告、可开关成人内容过滤。">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b1020'/%3E%3Cpath d='M4 18c4-6 7-6 11 0s7 6 11 0' stroke='%23f5b13c' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='24' cy='20' r='2.4' fill='%23ffd27a'/%3E%3C/svg%3E">
@@ -12,7 +15,7 @@
 
 <header class="site">
   <div class="header-in">
-    <a class="logo" href="index.html" aria-label="潮汐 TIDEFLOW 首页">
+    <a class="logo" href="index.html?v=1.3.13" aria-label="潮汐 TIDEFLOW 首页">
       <svg viewBox="0 0 32 32" aria-hidden="true">
         <rect width="32" height="32" rx="7" fill="#141b33"/>
         <path d="M4 18c4-6 7-6 11 0s7 6 11 0" stroke="#f5b13c" stroke-width="3" fill="none" stroke-linecap="round"/>
@@ -77,18 +80,28 @@
       <h2>源池管理 · 扫描 / 切换 / 发现新源</h2>
       <button class="close" id="closeSourcesBtn" aria-label="关闭">&times;</button>
     </div>
-    <div class="adf-row" style="padding:12px 20px 4px">
+    <label class="adf-row modal-filter" style="padding:14px 20px 4px">
       <span>成人内容过滤<span class="note">开启后自动过滤成人内容（安全模式），并隐藏成人源选项</span></span>
       <span class="switch">
         <input type="checkbox" id="filterCheck" checked>
         <span class="track"></span>
       </span>
-    </div>
-    <div style="padding:8px 20px 12px;display:flex;gap:8px">
-      <input id="customConfigUrl" type="text" placeholder="粘贴自定义采集配置 JSON 地址（如 GitHub raw），替换整个源池" style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:13px">
+    </label>
+    <div class="config-row" style="padding:8px 20px 12px">
+      <input id="customConfigUrl" type="text" placeholder="粘贴自定义采集配置 JSON 地址（如 GitHub raw），替换整个源池">
       <button class="btn ghost" id="loadCustomConfigBtn">加载并更新源</button>
     </div>
     <div class="modal-body" id="sourceBody"></div>
+    <div class="backup-box">
+      <div class="sec-title">数据备份 / 恢复 <span class="hint">历史 · 收藏 · 源配置 · 过滤设置</span></div>
+      <div class="backup-row">
+        <button class="btn ghost" id="exportBtn">导出备份（复制+下载）</button>
+        <button class="btn ghost" id="importFileBtn">选择文件导入</button>
+        <input type="file" id="importFile" accept=".json,application/json" style="display:none">
+      </div>
+      <textarea id="importBox" rows="2" placeholder="或把备份 JSON 粘贴到这里"></textarea>
+      <button class="btn ghost" id="importBtn">导入备份（粘贴内容）</button>
+    </div>
     <div class="modal-foot">
       <button class="btn ghost" id="scanAllBtn">扫描体检全部源</button>
       <button class="btn ghost" id="bestComboBtn">一键用最优组合</button>
@@ -99,8 +112,8 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="js/config.js?v=1.3.3"></script>
-<script src="js/sources.js?v=1.3.3"></script>
-<script src="js/app.js?v=1.3.3"></script>
+<script src="js/config.js?v=1.3.13"></script>
+<script src="js/sources.js?v=1.3.13"></script>
+<script src="js/app.js?v=1.3.13"></script>
 </body>
 </html>

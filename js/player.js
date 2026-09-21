@@ -17,6 +17,29 @@
   let adFilterOn = true;
   let playlistText = '';       // 原始 m3u8 文本（广告过滤用）
 
+  /* 续播参数：hash 优先（部署平台会剥 query，hash 完整保留），兼容 search 双通道 */
+  let resumeSt = -1;
+  let resumeEp = -1;
+  let resumeT = 0;
+  let curEp = 0;               // 当前选中的集索引（当前线路内）
+  let lastSaveAt = 0;
+  function readParams() {
+    const p = new URLSearchParams();
+    try {
+      const s = new URLSearchParams(location.search);
+      s.forEach((v, k) => p.set(k, v));
+      if (location.hash && location.hash.length > 1) {
+        try {
+          const h = new URLSearchParams(location.hash.slice(1));
+          h.forEach((v, k) => p.set(k, v)); // hash 覆盖 search
+        } catch (e) { /* ignore */ }
+      }
+    } catch (e) { /* ignore */ }
+    if (p.has('st')) resumeSt = parseInt(p.get('st'), 10);
+    if (p.has('ep')) resumeEp = parseInt(p.get('ep'), 10);
+    if (p.has('t')) resumeT = parseFloat(p.get('t'));
+  }
+
   /* ---------- 读取当前条目 ---------- */
   function loadItem() {
     try {
@@ -98,18 +121,20 @@
 
   function renderStreams() {
     streams = buildStreams();
-    curStream = 0;
+    if (resumeSt >= 0 && resumeSt < streams.length) curStream = resumeSt;
+    else curStream = 0;
     const panel = $('#streamPanel');
     if (streams.length < 2) {
       panel.style.display = 'none';
     } else {
       panel.style.display = 'block';
       $('#streamList').innerHTML = streams.map((s, i) =>
-        '<button class="ep-chip' + (i === 0 ? ' active' : '') + '" data-i="' + i + '">' + esc(s.name) + '</button>'
+        '<button class="ep-chip' + (i === curStream ? ' active' : '') + '" data-i="' + i + '">' + esc(s.name) + '</button>'
       ).join('');
       $('#streamList').querySelectorAll('.ep-chip').forEach((btn) => {
         btn.addEventListener('click', () => {
           curStream = +btn.dataset.i;
+          curEp = 0;
           $('#streamList').querySelectorAll('.ep-chip').forEach((x) => x.classList.remove('active'));
           btn.classList.add('active');
           loadStream();
@@ -124,20 +149,27 @@
     resolvedUrl = st.url;
     $('#directBox').textContent = resolvedUrl;
     $('#adfNote').textContent = '';
+    const eps = (st.episodes) || [];
+    if (curEp >= 0 && curEp < eps.length) {
+      resolvedUrl = eps[curEp].url;
+      $('#directBox').textContent = resolvedUrl;
+    }
     play().catch(() => { /* ignore */ });
   }
 
   function renderEpisodes() {
     const eps = (streams[curStream] && streams[curStream].episodes) || [];
     const panel = $('#epPanel');
-    if (eps.length < 2) { panel.style.display = 'none'; return; }
+    if (eps.length < 2) { panel.style.display = 'none'; curEp = 0; return; }
     panel.style.display = 'block';
+    curEp = (resumeEp >= 0 && resumeEp < eps.length) ? resumeEp : 0;
     $('#epList').innerHTML = eps.map((e, i) =>
-      '<button class="ep-chip' + (i === 0 ? ' active' : '') + '" data-i="' + i + '">' + esc(e.label) + '</button>'
+      '<button class="ep-chip' + (i === curEp ? ' active' : '') + '" data-i="' + i + '">' + esc(e.label) + '</button>'
     ).join('');
     $('#epList').querySelectorAll('.ep-chip').forEach((btn) => {
       btn.addEventListener('click', () => {
         const i = +btn.dataset.i;
+        curEp = i;
         resolvedUrl = eps[i].url;
         $('#directBox').textContent = resolvedUrl;
         $('#epList').querySelectorAll('.ep-chip').forEach((x) => x.classList.remove('active'));
@@ -273,6 +305,7 @@
       hls.attachMedia(video);
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         hideLoading();
+        seekResume();
         video.play().catch(() => { /* ignore */ });
       });
       hls.on(Hls.Events.ERROR, (e, data) => {
@@ -282,11 +315,46 @@
       });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = url;
-      video.addEventListener('loadedmetadata', () => hideLoading(), { once: true });
+      video.addEventListener('loadedmetadata', () => { hideLoading(); seekResume(); }, { once: true });
       video.play().catch(() => { /* ignore */ });
     } else {
       showLoading('当前浏览器不支持 HLS 播放');
     }
+  }
+
+  /* 续播跳转 + 播放进度保存 */
+  function seekResume() {
+    if (resumeT > 5 && isFinite(video.duration) && video.duration > resumeT + 5) {
+      try { video.currentTime = resumeT; } catch (e) { /* ignore */ }
+      resumeT = 0; // 只跳一次
+    }
+  }
+  function saveProgress() {
+    const t = video.currentTime;
+    const d = video.duration;
+    if (!isFinite(t) || !isFinite(d) || d <= 0 || t < 3) return;
+    try {
+      const arr = JSON.parse(localStorage.getItem('tideflow_history_v1') || '[]');
+      const snap = Object.assign({}, item, { st: curStream, ep: curEp, time: t, duration: d });
+      const idx = arr.findIndex((x) => x.key === item.key);
+      if (idx > -1) arr.splice(idx, 1);
+      arr.unshift(snap);
+      localStorage.setItem('tideflow_history_v1', JSON.stringify(arr.slice(0, 40)));
+      // 已收藏的条目同步进度
+      const fo = JSON.parse(localStorage.getItem('tideflow_favs_v1') || '{}');
+      if (fo[item.key]) {
+        fo[item.key] = Object.assign({}, fo[item.key], { st: curStream, ep: curEp, time: t, duration: d });
+        localStorage.setItem('tideflow_favs_v1', JSON.stringify(fo));
+      }
+    } catch (e) { /* ignore */ }
+  }
+  function bindProgress() {
+    video.addEventListener('timeupdate', () => {
+      const now = Date.now();
+      if (now - lastSaveAt > 5000) { lastSaveAt = now; saveProgress(); }
+    });
+    window.addEventListener('beforeunload', saveProgress);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) saveProgress(); });
   }
 
   /* ---------- 重试 / 外部播放 ---------- */
@@ -368,6 +436,8 @@
       $('#adfCheck').click();
     });
     video.addEventListener('playing', hideLoading);
+    video.addEventListener('loadedmetadata', () => { seekResume(); });
+    bindProgress();
     video.addEventListener('error', () => {
       if (!videoLoading.style.display || videoLoading.style.display === 'none') {
         showLoading('视频加载失败 —— 可点「重试」或换「外部播放器」');
@@ -423,6 +493,7 @@
 
   /* ---------- 初始化 ---------- */
   async function init() {
+    readParams();
     item = loadItem();
     if (!item) {
       $('#vTitle').textContent = '没有可播放的条目';

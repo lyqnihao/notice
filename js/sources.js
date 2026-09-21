@@ -348,21 +348,77 @@ function lunaSiteAdapter(site) {
   return {
     type: 'api',
     _api: site.api,
+    // 源分类前端过滤：多数采集站接口 tid 参数不生效（返回全部），改按数据里的 type_id / type_id_1 精确筛选
+    async _fetchClassified(ctx, startPage) {
+      const LIMIT = 50;
+      const wanted = ctx.limit || 15;
+      const classId = String(ctx.classId);
+      const isTop = !!ctx.classIsTop; // 顶层分类匹配 type_id_1，子分类匹配 type_id
+      const collected = [];
+      let p = startPage;
+      let lastLen = 1;
+      while (collected.length < wanted && p <= startPage + 5 && lastLen > 0) {
+        let u = site.api + (site.api.includes('?') ? '&' : '?') + 'ac=videolist&pg=' + p + '&limit=' + LIMIT;
+        const res = await fetchWithTimeout(lunaRelay(u), CONFIG.requestTimeout);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const j = await res.json();
+        const list = Array.isArray(j.list) ? j.list : [];
+        lastLen = list.length;
+        const cname = String(ctx.className || '').trim();
+        for (const v of list) {
+          const tid = String(v.type_id == null ? '' : v.type_id);
+          const tid1 = String(v.type_id_1 == null ? '' : v.type_id_1);
+          // 顶层分类：type_id_1 精确匹配；子分类：type_name 分类名匹配（部分源子分类 id 与数据编码不一致）
+          let hit = isTop ? (tid1 === classId) : (cname && String(v.type_name || '').trim() === cname);
+          if (!hit && !isTop) hit = (tid === classId); // 名称匹配不上时回退 id 匹配
+          if (hit) collected.push(v);
+        }
+        p++;
+      }
+      // 顶层过滤可能因个别源缺 type_id_1 字段而空转，回退用 type_id 直接匹配
+      if (isTop && !collected.length && p > startPage) {
+        // 不做二次翻页，仅提示（绝大多数源都有 type_id_1）
+      }
+      this._total = -1; // 分类模式不显示库藏数
+      this._nextPage = p;
+      this._classifiedEmpty = collected.length === 0; // 分类筛空标记（供前端降级回退）
+      const out = [];
+      for (const v of collected) {
+        const eps = lunaEpisodes(v).slice(0, 40);
+        if (!eps.length || !v.vod_name) continue;
+        out.push({
+          key: 'luna:' + site.key + ':' + v.vod_id,
+          id: String(v.vod_id),
+          title: v.vod_name,
+          desc: lunaClean(v.vod_content || v.vod_blurb || '').slice(0, 200),
+          thumb: String(v.vod_pic || '').replace(/^http:\/\//, 'https://'),
+          direct: eps[0].url,
+          needResolve: false,
+          source: site.name, sourceId: 'luna:' + site.key,
+          tags: [v.vod_class, String(v.vod_year || ''), v.vod_area, v.vod_remarks].filter(Boolean),
+          actors: String(v.vod_actor || '').split(/[,，]/).map((s) => s.trim()).filter(Boolean).slice(0, 6),
+          studio: site.name,
+          series: v.vod_name || '',
+          date: String(v.vod_year || ''),
+          location: v.vod_area || '',
+          duration: 0,
+          episodes: eps,
+          mime: 'video/mp4',
+          categories: ['影视'],
+        });
+      }
+      return out;
+    },
     async fetch(ctx) {
       const page = ctx.page || 1;
       const q = (ctx.query || '').trim();
+      if (ctx.classId && !q) {
+        return this._fetchClassified(ctx, page);
+      }
       const r0 = await fetchList(page, q);
       this._total = r0.total;
+      this._nextPage = 0;
       let list = r0.list;
-      // 源分类筛选（tid）
-      if (ctx.classId) {
-        try {
-          let uc = site.api + (site.api.includes('?') ? '&' : '?') + 'ac=videolist&pg=' + page + '&limit=15&tid=' + encodeURIComponent(ctx.classId);
-          const rc = await fetchWithTimeout(lunaRelay(uc), CONFIG.requestTimeout);
-          const jc = await rc.json();
-          if (Array.isArray(jc.list) && jc.list.length) list = jc.list;
-        } catch (e) { /* ignore */ }
-      }
       // 演员名搜不到时，补一发 actor= 参数搜索并合并
       if (q && page === 1 && list.length === 0) {
         try {

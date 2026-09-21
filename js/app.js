@@ -19,6 +19,8 @@
     category: '全部',
     sourceOnly: '',
     classId: '',       // 源分类 tid
+    classIsTop: false, // 源分类是否为顶层（顶层匹配 type_id_1，子分类匹配 type_name 分类名）
+    className: '',     // 源子分类名（子分类匹配用）
     view: 'feed',      // feed | history | favs
     manage: false,     // 历史/收藏管理（多选删除）模式
     selected: new Set(),
@@ -140,13 +142,39 @@
     try {
       const ad = ADAPTERS[lunaDef.id];
       if (!ad || !ad._api) return;
-      const res = await fetchWithTimeout(lunaRelay(ad._api + '?ac=list'), CONFIG.requestTimeout);
+      // 分类树 + 一页数据并行拉取：用数据真实分类体系校验分类树，无效分类（数据里不存在）不显示
+      const [res, vres] = await Promise.all([
+        fetchWithTimeout(lunaRelay(ad._api + '?ac=list'), CONFIG.requestTimeout),
+        fetchWithTimeout(lunaRelay(ad._api + '?ac=videolist&pg=1&limit=50'), CONFIG.requestTimeout),
+      ]);
       const j = await res.json();
+      const vj = await vres.json();
       const cls = (j && j.class) || [];
+      const vlist = Array.isArray(vj && vj.list) ? vj.list : [];
+      const tid1Set = new Set(vlist.map((v) => String(v.type_id_1 == null ? '' : v.type_id_1)).filter(Boolean));
+      const tnameSet = new Set(vlist.map((v) => String(v.type_name || '').trim()).filter(Boolean));
       const flat = [];
+      const seen = new Set();
       cls.forEach((c) => {
-        if (c.type_id && c.type_name) flat.push({ id: c.type_id, name: c.type_name });
-        (c.list || []).forEach((sub) => { if (sub.type_id && sub.type_name) flat.push({ id: sub.type_id, name: sub.type_name }); });
+        const isTop = (c.type_pid === undefined || c.type_pid === null || String(c.type_pid) === '0');
+        if (isTop && c.type_id && c.type_name) {
+          // 顶层分类（电影/连续剧/综艺…）直接保留：苹果 CMS 标准 type_id_1 体系，第一页数据抽样可能不覆盖
+          if (!seen.has('t:' + c.type_name)) { seen.add('t:' + c.type_name); flat.push({ id: c.type_id, name: c.type_name, isTop: true }); }
+        }
+        (c.list || []).forEach((sub) => {
+          // 子分类：仅保留数据 type_name 真实存在的（部分源分类树含数据体系外的虚分类）
+          if (sub.type_id && sub.type_name && tnameSet.has(String(sub.type_name).trim())) {
+            if (!seen.has('n:' + sub.type_name)) { seen.add('n:' + sub.type_name); flat.push({ id: sub.type_id, name: sub.type_name, isTop: false }); }
+          }
+        });
+      });
+      // 数据聚合的叶子分类（type_name，type_id 体系之外的精确分类）
+      vlist.forEach((v) => {
+        const tn = String(v.type_name || '').trim();
+        if (tn && !seen.has('n:' + tn)) {
+          seen.add('n:' + tn);
+          flat.push({ id: tn, name: tn, isTop: false });
+        }
       });
       // 切换源后原分类失效，清掉
       if (state.classId && !flat.some((o) => String(o.id) === String(state.classId))) {
@@ -154,14 +182,21 @@
       }
       const opts = [{ id: '', name: '全部' }].concat(flat.slice(0, 24));
       box.innerHTML = opts.map((o) =>
-        '<span class="chip' + (String(state.classId) === String(o.id) ? ' active' : '') + '" data-tid="' + o.id + '">' + esc(o.name) + '</span>'
+        '<span class="chip' + (String(state.classId) === String(o.id) ? ' active' : '') + '" data-tid="' + o.id + '" data-istop="' + (o.isTop ? '1' : '0') + '">' + esc(o.name) + '</span>'
       ).join('');
       box.querySelectorAll('.chip').forEach((el) => {
         el.addEventListener('click', () => {
           state.classId = el.dataset.tid;
+          state.classIsTop = el.dataset.istop === '1';
+          state.className = el.textContent; // 子分类按分类名匹配（type_name）
+          // 关键：分类树来自 lunaDef（当前所选/首个 LunaTV 源），
+          // 点击分类时必须聚焦到该源，否则 tid 对所有源同时生效、其余源返回全部，看起来像没筛选
+          if (lunaDef && state.classId) state.sourceOnly = lunaDef.id;
           state.query = '';
           $('#searchInput').value = '';
-          renderCatChips();
+          renderChips();
+          renderSourceSelect();
+          loadSourceCategories();
           loadFeed(true);
         });
       });
@@ -219,6 +254,8 @@
       page,
       sourceOnly: state.sourceOnly,
       classId: state.classId,
+      classIsTop: state.classIsTop,
+      className: state.className,
     });
   }
 
@@ -248,9 +285,22 @@
         const page = (state.pages[src.id] || 0) + 1;
         try {
           const items = await fetchSource(src, page);
-          state.pages[src.id] = page;
           const ad = ADAPTERS[src.id];
+          // 分类模式按后端真实翻页数推进；普通模式即 page
+          state.pages[src.id] = (ad && ad._nextPage) || page;
           if (ad && ad._total) totals[src.name] = ad._total;
+          // 分类筛空：该分类在此源无内容 → 降级回退全部内容并提示
+          if (state.classId && ad && ad._classifiedEmpty && reset) {
+            const name = state.className || '';
+            state.classId = '';
+            state.classIsTop = false;
+            state.className = '';
+            setTimeout(() => {
+              showToast('「' + name + '」在此源暂无内容，已显示全部');
+              loadSourceCategories();
+              loadFeed(true);
+            }, 500);
+          }
           all.push({ src, items });
         } catch (e) {
           fails.push(src.name);
@@ -339,7 +389,8 @@
       html += info.counts.map(([n, c]) => {
         if (state.filterOn && ADULT_SOURCE_HINT.test(n)) return '';
         const t = info.totals && info.totals[n];
-        return '<span>' + esc(n) + (t ? ' 库藏约 <b>' + fmtCount(t) + '</b>' : '') + '</span>';
+        // 分类模式下 total=-1 不显示库藏数
+        return '<span>' + esc(n) + (t && t > 0 ? ' 库藏约 <b>' + fmtCount(t) + '</b>' : '') + '</span>';
       }).join('');
     }
     if (info.fails && info.fails.length) {
@@ -382,6 +433,19 @@
 
     const badge = it.source + ((it.streams && it.streams.length > 1) ? ' ×' + it.streams.length : '');
     if (opts.selectable && state.selected.has(it.key)) art.classList.add('selected');
+    // 集数角标（卡片本体）
+    let epBadge = '';
+    const nEps = (it.episodes && it.episodes.length) || 0;
+    if (nEps > 1) {
+      epBadge = '<span class="dur-badge ep-badge">' + (it.ep != null && it.ep >= 0 ? '第' + (it.ep + 1) + '/' + nEps + '集' : nEps + '集') + '</span>';
+    }
+    // 续播进度信息（纯展示，无按钮；点卡片即续播）
+    let progHtml = '';
+    if (it.time && it.duration && it.duration > it.time + 30) {
+      const pct = Math.min(100, Math.round((it.time / it.duration) * 100));
+      progHtml = '<div class="prog-row"><span class="prog-bar"><i style="width:' + pct + '%"></i></span>' +
+        '<span class="prog-txt">上次看到 ' + fmtDur(it.time) + '</span></div>';
+    }
     art.innerHTML =
       '<div class="thumb' + (it.thumb ? '' : ' noimg') + '">' +
         (it.thumb ? '<img loading="lazy" src="' + escAttr(it.thumb) + '" alt="" onerror="this.parentElement.classList.add(\'noimg\');this.remove()">' : '') +
@@ -390,11 +454,12 @@
         (opts.selectable ? '<span class="sel-check">' + (state.selected.has(it.key) ? '✓' : '') + '</span>' : '') +
         (opts.onDelete && !opts.selectable ? '<button class="del-btn" title="从列表中移除">×</button>' : '') +
         (it.duration ? '<span class="dur-badge">' + fmtDur(it.duration) + '</span>' : '') +
-        ((it.episodes && it.episodes.length > 1) ? '<span class="dur-badge ep-badge">' + it.episodes.length + '集</span>' : '') +
+        epBadge +
         '<span class="play-hint"><span class="ph-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="#221503"><path d="M8 5v14l11-7z"/></svg></span></span>' +
       '</div>' +
       '<div class="body">' +
         '<h3 class="card-title">' + esc(it.title) + '</h3>' +
+        progHtml +
         '<div class="card-tags">' + tagsHtml + '</div>' +
       '</div>';
 
@@ -420,9 +485,26 @@
         updateViewStatus(state.view === 'history' ? '播放历史' : '我的收藏', state.view === 'history' ? clearHistory : clearFavs);
         return;
       }
-      openPlayer(it);
+      // 点卡片直接续播（带上次集数与进度）
+      openPlayer(it, { st: it.st, ep: it.ep, t: it.time });
     });
     return art;
+  }
+
+  /* ---------- 版本提示条 ---------- */
+  function showVersionBanner(oldV, newV) {
+    if ($('#verBanner')) return;
+    const bar = document.createElement('div');
+    bar.id = 'verBanner';
+    bar.className = 'ver-banner';
+    bar.innerHTML = '站点已更新到 <b>v' + esc(newV) + '</b>（本地记录 v' + esc(oldV) + '）—— <button id="verRefreshBtn" class="btn mini">刷新加载最新</button>';
+    const tb = document.querySelector('.toolbar');
+    if (tb && tb.parentNode) tb.parentNode.insertBefore(bar, tb.nextSibling);
+    const btn = $('#verRefreshBtn');
+    if (btn) btn.addEventListener('click', () => {
+      try { localStorage.setItem('tideflow_ver_v1', CONFIG.version); } catch (e) { /* ignore */ }
+      location.reload();
+    });
   }
 
   function renderLoadMore(empty) {
@@ -436,12 +518,19 @@
   }
 
   /* ---------- 跳转 ---------- */
-  function openPlayer(it) {
+  function openPlayer(it, opts) {
+    opts = opts || {};
     try {
       localStorage.setItem(CONFIG.currentKey, JSON.stringify(it));
       recordHistory(it);
     } catch (e) { /* ignore */ }
-    location.href = 'player.html';
+    let url = 'player.html#v=' + CONFIG.version;
+    const parts = [];
+    if (opts.st != null) parts.push('st=' + opts.st);
+    if (opts.ep != null) parts.push('ep=' + opts.ep);
+    if (opts.t != null && opts.t > 0) parts.push('t=' + Math.round(opts.t));
+    if (parts.length) url += '&' + parts.join('&');
+    location.href = url;
   }
   function goSearch(q) {
     state.query = q;
@@ -479,7 +568,7 @@
         '<button class="btn ghost mini danger" id="selDelBtn">删除选中（' + state.selected.size + '）</button>' +
         '<button class="btn ghost mini" id="exitManageBtn">完成</button>';
       $('#selAllBtn').addEventListener('click', () => {
-        const all = state.view === 'history' ? loadHistory() : loadFavs();
+        const all = viewFiltered(state.view === 'history' ? loadHistory() : loadFavs());
         state.selected.clear();
         all.forEach((x) => state.selected.add(x.key));
         updateViewStatus(title, clearFn);
@@ -504,11 +593,15 @@
   function renderCurrentView() {
     if (state.view === 'history') {
       updateViewStatus('播放历史', clearHistory);
-      renderViewList(loadHistory(), '还没有播放记录 —— 去首页看几部，它们会出现在这里', 'history');
+      renderViewList(viewFiltered(loadHistory()), '还没有播放记录 —— 去首页看几部，它们会出现在这里', 'history');
     } else {
       updateViewStatus('我的收藏', clearFavs);
-      renderViewList(loadFavs(), '还没有收藏 —— 在播放页点右上角星标收藏', 'favs');
+      renderViewList(viewFiltered(loadFavs()), '还没有收藏 —— 在播放页点右上角星标收藏', 'favs');
     }
+  }
+  /* 视图（历史/收藏）按成人过滤开关过滤 */
+  function viewFiltered(arr) {
+    return state.filterOn ? arr.filter((x) => !isAdultContent(x)) : arr;
   }
   function reapplyManageClass() {
     grid.querySelectorAll('.card').forEach((c) => {
@@ -582,7 +675,7 @@
       $('#histBtn').classList.add('active');
       $('#favBtn').classList.remove('active');
       updateViewStatus('播放历史', clearHistory);
-      renderViewList(loadHistory(), '还没有播放记录 —— 去首页看几部，它们会出现在这里', 'history');
+      renderViewList(viewFiltered(loadHistory()), '还没有播放记录 —— 去首页看几部，它们会出现在这里', 'history');
     });
     $('#favBtn').addEventListener('click', () => {
       if (state.view === 'favs') { backToFeed(); return; }
@@ -592,7 +685,7 @@
       $('#favBtn').classList.add('active');
       $('#histBtn').classList.remove('active');
       updateViewStatus('我的收藏', clearFavs);
-      renderViewList(loadFavs(), '还没有收藏 —— 在播放页点右上角星标收藏', 'favs');
+      renderViewList(viewFiltered(loadFavs()), '还没有收藏 —— 在播放页点右上角星标收藏', 'favs');
     });
   }
 
@@ -810,6 +903,73 @@
       }
     });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $('#sourceModal').classList.remove('open'); });
+    $('#exportBtn').addEventListener('click', exportData);
+    $('#importBtn').addEventListener('click', () => importData($('#importBox').value.trim()));
+    $('#importFileBtn').addEventListener('click', () => $('#importFile').click());
+    $('#importFile').addEventListener('change', (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      const rd = new FileReader();
+      rd.onload = () => { importData(String(rd.result || '')); e.target.value = ''; };
+      rd.onerror = () => { showToast('文件读取失败', 'err'); e.target.value = ''; };
+      rd.readAsText(f);
+    });
+  }
+
+  /* ---------- 数据备份 / 恢复 ---------- */
+  function exportData() {
+    let favs = {};
+    try { favs = JSON.parse(localStorage.getItem(FAV_KEY) || '{}'); } catch (e) { /* ignore */ }
+    let configUrl = '';
+    try { configUrl = localStorage.getItem('tideflow_config_url_v1') || ''; } catch (e) { /* ignore */ }
+    const data = {
+      app: 'tideflow',
+      version: CONFIG.version,
+      exportedAt: new Date().toISOString(),
+      history: loadHistory(),
+      favs: favs,
+      sources: state.enabled,
+      filterOn: state.filterOn,
+      configUrl: configUrl,
+    };
+    const json = JSON.stringify(data, null, 2);
+    try {
+      const blob = new Blob([json], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = '潮汐TIDEFLOW-备份-v' + CONFIG.version + '.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      showToast('备份文件已开始下载（历史 ' + data.history.length + ' · 收藏 ' + Object.keys(favs).length + ' · 源 ' + data.sources.length + '）', 'ok');
+    } catch (e) {
+      showToast('导出失败：' + e.message, 'err');
+    }
+  }
+  function importData(text) {
+    let d;
+    try { d = JSON.parse(text); } catch (e) { showToast('导入失败：不是有效的 JSON', 'err'); return; }
+    if (!d || typeof d !== 'object' || !Array.isArray(d.history) || typeof d.favs !== 'object') {
+      showToast('导入失败：不是潮汐备份文件（缺少 history/favs 字段）', 'err');
+      return;
+    }
+    try {
+      localStorage.setItem(HIST_KEY, JSON.stringify(d.history.slice(0, 40)));
+      const favs = {};
+      Object.keys(d.favs).forEach((k) => { if (d.favs[k] && d.favs[k].key) favs[k] = d.favs[k]; });
+      const fkeys = Object.keys(favs);
+      if (fkeys.length > 50) fkeys.slice(0, fkeys.length - 50).forEach((k) => delete favs[k]);
+      localStorage.setItem(FAV_KEY, JSON.stringify(favs));
+      if (Array.isArray(d.sources)) {
+        const valid = d.sources.filter((id) => SOURCES.some((s) => s.id === id));
+        if (valid.length) { state.enabled = valid.slice(0, CONFIG.maxActive); saveEnabled(); }
+      }
+      if (typeof d.filterOn === 'boolean') { state.filterOn = d.filterOn; saveFilter(); }
+      if (d.configUrl) { try { localStorage.setItem('tideflow_config_url_v1', d.configUrl); } catch (e) { /* ignore */ } }
+      showToast('备份已导入，正在刷新…', 'ok');
+      setTimeout(() => location.reload(), 900);
+    } catch (e) { showToast('导入失败：' + e.message, 'err'); }
   }
 
   /* ---------- 工具 ---------- */
@@ -827,6 +987,15 @@
 
   /* ---------- 初始化 ---------- */
   async function init() {
+    /* 版本提示：本地记录版本与当前不一致时，显示更新提示条（不自动跳转，避免平台剥 query 造成循环） */
+    try {
+      const savedVer = localStorage.getItem('tideflow_ver_v1');
+      if (savedVer && savedVer !== CONFIG.version) {
+        showVersionBanner(savedVer, CONFIG.version);
+      } else {
+        localStorage.setItem('tideflow_ver_v1', CONFIG.version);
+      }
+    } catch (e) { /* ignore */ }
     renderChips();
     renderSourceSelect();
     renderFilterSwitch();
