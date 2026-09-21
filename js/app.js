@@ -80,8 +80,10 @@
       const arr = loadHistory();
       const idx = arr.findIndex((x) => x.key === it.key);
       if (idx > -1) arr.splice(idx, 1);
-      arr.unshift(it);
-      localStorage.setItem(HIST_KEY, JSON.stringify(arr.slice(0, 40)));
+      // 点卡片即入历史：裁剪集数防 localStorage 超限（200 条 × 100 集约 1.7MB）
+      const snap = Object.assign({}, it, { episodes: (it.episodes || []).slice(0, EP_LIMIT) });
+      arr.unshift(snap);
+      localStorage.setItem(HIST_KEY, JSON.stringify(arr.slice(0, HIST_LIMIT)));
     } catch (e) { /* ignore */ }
   }
   function loadFavs() {
@@ -104,7 +106,7 @@
   }
 
   /* ---------- 渲染：分类 chips / 源下拉 ---------- */
-  const COMMON_CATS = ['电影','电视剧','动漫','综艺','纪录片','动作片','喜剧片','悬疑片','爱情片','科幻片','恐怖片','古装剧'];
+  const COMMON_CATS = ['电影','电视剧','动漫','综艺','短剧','漫剧','纪录片','动作片','喜剧片','悬疑片','爱情片','科幻片','恐怖片','古装剧'];
 
   function renderCatChips() {
     const box = $('#catChips');
@@ -195,7 +197,6 @@
           state.query = '';
           $('#searchInput').value = '';
           renderChips();
-          renderSourceSelect();
           loadSourceCategories();
           loadFeed(true);
         });
@@ -222,16 +223,6 @@
         loadFeed(true);
       });
     });
-  }
-
-  function renderSourceSelect() {
-    const sel = $('#sourceSelect');
-    sel.innerHTML = '<option value="">全部来源</option>' + SOURCES
-      .filter((s) => state.enabled.includes(s.id))
-      .filter((s) => !(state.filterOn && ADULT_SOURCE_HINT.test(s.name)))
-      .map((s) => '<option value="' + s.id + '">' + s.name + '</option>')
-      .join('');
-    sel.value = state.sourceOnly;
   }
 
   /* ---------- 过滤开关（位于更新源面板） ---------- */
@@ -271,7 +262,6 @@
       state.pages = {};
       autoRetries = 0;
       renderFilterSwitch();
-      renderSourceSelect();
       updateStatus(null, true);
     }
 
@@ -722,23 +712,12 @@
       $('#histBtn').classList.remove('active');
       $('#favBtn').classList.remove('active');
       renderChips();
-      renderSourceSelect();
       loadSourceCategories();
       loadFeed(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
     $('#searchBtn').addEventListener('click', doSearch);
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
-  }
-
-  /* ---------- 源选择 ---------- */
-  function bindSourceSelect() {
-    $('#sourceSelect').addEventListener('change', (e) => {
-      state.sourceOnly = e.target.value;
-      state.classId = '';
-      loadSourceCategories();
-      loadFeed(true);
-    });
   }
 
   /* ---------- 过滤开关（位于更新源面板） ---------- */
@@ -767,13 +746,51 @@
     const pool = SOURCES.filter((s) => !s.candidate);
     const candidates = SOURCES.filter((s) => s.candidate);
 
-    let html = '<div class="sec-title">当前源池 <span class="hint">最多同时启用 ' + CONFIG.maxActive + ' 条 · 卡片左上角为来源标识</span></div>';
+    // 统计：总数 / 已启用 / 体检有效 / 失效 / 未体检
+    const enabledCount = state.enabled.filter((id) => SOURCES.some((s) => s.id === id)).length;
+    let okCount = 0, deadCount = 0, untestedCount = 0;
+    SOURCES.forEach((s) => {
+      const sc = state.scanResults[s.id];
+      if (sc && sc.ok) okCount++;
+      else if (sc && !sc.ok) deadCount++;
+      else untestedCount++;
+    });
+    const dead = candidates.filter((s) => state.scanResults[s.id] && !state.scanResults[s.id].ok);
+    const aliveCandidates = candidates.filter((s) => !dead.includes(s));
+
+    let html = '<div class="sec-title">当前源池 <span class="hint">共 ' + SOURCES.length + ' 条 · 已启用 ' + enabledCount + '/' + CONFIG.maxActive +
+      ' · 有效 ' + okCount + ' · 失效 ' + deadCount + ' · 未体检 ' + untestedCount + '</span></div>';
     html += pool.map((s) => srcRowHtml(s)).join('');
 
     html += '<div class="sec-title">在线探测候选源 <span class="hint">逐个实测你当前网络的可达性，通了的可「加入源池」</span></div>';
-    html += candidates.map((s) => srcRowHtml(s)).join('');
+    html += aliveCandidates.map((s) => srcRowHtml(s)).join('');
+
+    if (dead.length) {
+      html += '<details class="dead-src"><summary>失效 / 不可达源（' + dead.length + '）<span class="hint">点击展开，可勾选移除或一键清理</span></summary>' +
+        dead.map((s) => srcRowHtml(s)).join('') + '</details>';
+    }
     body.innerHTML = html;
     bindSrcRowEvents();
+  }
+
+  /* 一键清理失效源：移除体检结果为不可达的候选源 */
+  function cleanDeadSources() {
+    const dead = SOURCES.filter((s) => state.scanResults[s.id] && !state.scanResults[s.id].ok);
+    if (!dead.length) { showToast('当前没有体检为失效的源', 'err'); return; }
+    dead.forEach((s) => {
+      delete ADAPTERS[s.id];
+      const i = SOURCES.indexOf(s);
+      if (i > -1) SOURCES.splice(i, 1);
+      delete state.scanResults[s.id];
+    });
+    state.enabled = state.enabled.filter((id) => SOURCES.some((s) => s.id === id));
+    saveEnabled();
+    saveScanResults();
+    renderSourceModal();
+    renderChips();
+    loadSourceCategories();
+    loadFeed(true);
+    showToast('已清理 ' + dead.length + ' 个失效源', 'ok');
   }
 
   function srcRowHtml(s) {
@@ -857,6 +874,8 @@
       }
     }
     bindSrcRowEvents();
+    // 体检完成：整体重渲染（统计数字刷新 + 失效源归入折叠分区）
+    renderSourceModal();
     btn.disabled = false;
     btn.textContent = '扫描体检全部源';
     showToast('体检完成：可用源已按结果排序，可「一键用最优组合」', 'ok');
@@ -898,7 +917,6 @@
       return;
     }
     $('#sourceModal').classList.remove('open');
-    renderSourceSelect();
     loadSourceCategories();
     loadFeed(true);
     showToast('已应用源配置，内容已刷新', 'ok');
@@ -913,6 +931,7 @@
     $('#closeSourcesBtn').addEventListener('click', () => $('#sourceModal').classList.remove('open'));
     $('#sourceModal').addEventListener('click', (e) => { if (e.target === $('#sourceModal')) $('#sourceModal').classList.remove('open'); });
     $('#scanAllBtn').addEventListener('click', scanAll);
+    $('#cleanDeadBtn').addEventListener('click', cleanDeadSources);
     $('#bestComboBtn').addEventListener('click', applyBest);
     $('#applySourcesBtn').addEventListener('click', applySources);
     $('#loadCustomConfigBtn').addEventListener('click', async () => {
@@ -925,7 +944,6 @@
         showToast('已更新：注册 ' + n + ' 个采集站');
         renderSourceModal();
         renderChips();
-        renderSourceSelect();
       } catch (e) {
         showToast('配置加载失败：' + (e && e.message ? e.message : '网络错误'), 'err');
       } finally {
@@ -948,7 +966,6 @@
       saveEnabled();
       renderSourceModal();
       renderChips();
-      renderSourceSelect();
       loadSourceCategories();
       loadFeed(true);
     };
@@ -1004,11 +1021,11 @@
       return;
     }
     try {
-      localStorage.setItem(HIST_KEY, JSON.stringify(d.history.slice(0, 40)));
+      localStorage.setItem(HIST_KEY, JSON.stringify(d.history.slice(0, HIST_LIMIT)));
       const favs = {};
       Object.keys(d.favs).forEach((k) => { if (d.favs[k] && d.favs[k].key) favs[k] = d.favs[k]; });
       const fkeys = Object.keys(favs);
-      if (fkeys.length > 50) fkeys.slice(0, fkeys.length - 50).forEach((k) => delete favs[k]);
+      if (fkeys.length > FAV_LIMIT) fkeys.slice(0, fkeys.length - FAV_LIMIT).forEach((k) => delete favs[k]);
       localStorage.setItem(FAV_KEY, JSON.stringify(favs));
       if (Array.isArray(d.sources)) {
         const valid = d.sources.filter((id) => SOURCES.some((s) => s.id === id));
@@ -1046,10 +1063,8 @@
       }
     } catch (e) { /* ignore */ }
     renderChips();
-    renderSourceSelect();
     renderFilterSwitch();
     bindSearch();
-    bindSourceSelect();
     bindFilterSwitch();
     bindLoadMore();
     bindSourceModal();
@@ -1085,7 +1100,6 @@
       restoreScanResults();
       renderChips();
       renderCatChips();
-      renderSourceSelect();
       loadSourceCategories();
     }
     renderCatChips();

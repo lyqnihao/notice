@@ -5,13 +5,18 @@
 const CONFIG = {
   name: '潮汐 TIDEFLOW',
   slogan: '全网免费视频聚合 · 直链播放 · 零广告',
-  version: '1.3.16',
+  version: '1.3.17',
   maxActive: 5,                // 同时启用的源上限（高速通道）
   storeKey: 'tideflow_sources_v1',
   filterKey: 'tideflow_filter_v1',
   currentKey: 'tideflow_current_v1',
   requestTimeout: 10000,
 };
+
+/* 历史 / 收藏 / 集数保存上限（localStorage 约 5MB，200 条 × 每条约 100 集在安全区间） */
+const HIST_LIMIT = 200;
+const FAV_LIMIT = 200;
+const EP_LIMIT = 100;
 
 /* ---------- 成人内容过滤（安全模式，默认开启） ---------- */
 const ADULT_KEYWORDS = [

@@ -371,15 +371,15 @@
     try {
       const arr = JSON.parse(localStorage.getItem('tideflow_history_v1') || '[]');
       // 历史/收藏只保留前 500 集，避免几千集短剧把 localStorage 撑爆
-      const snap = Object.assign({}, item, { episodes: (item.episodes || []).slice(0, 500), st: curStream, ep: curEp, time: t, duration: d });
+      const snap = Object.assign({}, item, { episodes: (item.episodes || []).slice(0, EP_LIMIT), st: curStream, ep: curEp, time: t, duration: d });
       const idx = arr.findIndex((x) => x.key === item.key);
       if (idx > -1) arr.splice(idx, 1);
       arr.unshift(snap);
-      localStorage.setItem('tideflow_history_v1', JSON.stringify(arr.slice(0, 40)));
+      localStorage.setItem('tideflow_history_v1', JSON.stringify(arr.slice(0, HIST_LIMIT)));
       // 已收藏的条目同步进度
       const fo = JSON.parse(localStorage.getItem('tideflow_favs_v1') || '{}');
       if (fo[item.key]) {
-        fo[item.key] = Object.assign({}, fo[item.key], { episodes: (item.episodes || []).slice(0, 500), st: curStream, ep: curEp, time: t, duration: d });
+        fo[item.key] = Object.assign({}, fo[item.key], { episodes: (item.episodes || []).slice(0, EP_LIMIT), st: curStream, ep: curEp, time: t, duration: d });
         localStorage.setItem('tideflow_favs_v1', JSON.stringify(fo));
       }
     } catch (e) { /* ignore */ }
@@ -519,9 +519,9 @@
           renderFavBtn();
           showToastMsg('已取消收藏');
         } else {
-          o[item.key] = item;
+          o[item.key] = Object.assign({}, item, { episodes: (item.episodes || []).slice(0, EP_LIMIT) });
           const keys = Object.keys(o);
-          if (keys.length > 50) delete o[keys[0]]; // 上限 50
+          if (keys.length > FAV_LIMIT) delete o[keys[0]]; // 超上限移除最早收藏
           localStorage.setItem(FAV_KEY, JSON.stringify(o));
           renderFavBtn();
           showToastMsg('已收藏，首页「收藏」可查看');
