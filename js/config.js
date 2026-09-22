@@ -5,7 +5,7 @@
 const CONFIG = {
   name: '潮汐 TIDEFLOW',
   slogan: '全网免费视频聚合 · 直链播放 · 零广告',
-  version: '1.3.17',
+  version: '1.3.22',
   maxActive: 5,                // 同时启用的源上限（高速通道）
   storeKey: 'tideflow_sources_v1',
   filterKey: 'tideflow_filter_v1',
@@ -18,8 +18,8 @@ const HIST_LIMIT = 200;
 const FAV_LIMIT = 200;
 const EP_LIMIT = 100;
 
-/* ---------- 成人内容过滤（安全模式，默认开启） ---------- */
-const ADULT_KEYWORDS = [
+/* ---------- 内容安全过滤（安全模式，默认开启） ---------- */
+const FILTER_KEYWORDS = [
   // 拉丁词：按单词边界匹配
   'porn', 'xxx', 'nsfw', 'adult', 'erotic', 'erotica', 'hentai',
   'sex', 'sexual', 'nude', 'naked', 'topless', 'bikini',
@@ -28,7 +28,7 @@ const ADULT_KEYWORDS = [
   '麻豆', '果冻', '91', '果豆', '蜜桃', '淫媒', '情欲', '约炮', '萝莉', '迷奸', '偷情'
 ].map((k) => k.toLowerCase());
 
-const ADULT_SOURCE_HINT = /[🔞😈]|91md|麻豆|成人|情色|果冻|果豆|蜜桃|淫|av|xing|sex/i;
+const FILTER_SOURCE_HINT = /[🔞😈]|91md|麻豆|成人|情色|果冻|果豆|蜜桃|淫|av|xing|sex/i;
 
 /* ---------- 推广 / 广告条目过滤（数据层） ---------- */
 const PROMO_KEYWORDS = [
@@ -61,13 +61,13 @@ function escapeReg(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/* 是否命中成人内容：源名 / 标题 / 标签 / 描述 任一命中即过滤 */
-function isAdultContent(item) {
-  if (item.sourceId && ADULT_SOURCE_HINT.test(item.sourceId)) return true;
-  if (item.source && ADULT_SOURCE_HINT.test(item.source)) return true;
+/* 是否命中敏感内容：源名 / 标题 / 标签 / 描述 任一命中即过滤 */
+function isFilteredContent(item) {
+  if (item.sourceId && FILTER_SOURCE_HINT.test(item.sourceId)) return true;
+  if (item.source && FILTER_SOURCE_HINT.test(item.source)) return true;
   const hay = [item.title, item.desc, (item.tags || []).join(' '), (item.categories || []).join(' ')]
     .join(' ').toLowerCase();
-  for (const k of ADULT_KEYWORDS) {
+  for (const k of FILTER_KEYWORDS) {
     if (/^[\x00-\x7f]+$/.test(k)) {
       if (new RegExp('\\b' + escapeReg(k) + '\\b').test(hay)) return true;
     } else if (hay.includes(k)) {

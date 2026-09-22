@@ -42,6 +42,6 @@ lark-cli apps +release-get --app-id app_17eckqrc16z --release-id <release_id>
 
 - 自动拉取 https://raw.githubusercontent.com/hafrey1/LunaTV-config/main/LunaTV-config.json（69 个采集站，自动更新）
 - 经中转 https://pz.v88.qzz.io/?url= 访问苹果 CMS V10 接口；启动时自动探活，挑直链可播的子站
-- 过滤 🔞 成人站；播放页支持选集切换；主播放列表不做广告剔除
+- 过滤 🔞 敏感站；播放页支持选集切换；主播放列表不做广告剔除
 - 线上验证：首页 114 卡（LunaTV 90）、剧集多集 m3u8 真实播放、搜索「斗罗大陆」→54 条
 - 注意：个别采集站 CDN 在某些网络不可达（环境相关），换一部片即可

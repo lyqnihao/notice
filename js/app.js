@@ -28,6 +28,7 @@
     items: [],          // 全部已加载条目（去重后）
     seenKeys: new Set(),
     loading: false,
+    emptyLoads: 0,      // 连续加载无新内容的次数（≥2 视为到底）
     scanResults: {},    // sourceId -> { ok, latencyMs, count, directOk, note }
   };
 
@@ -140,6 +141,8 @@
     } else {
       lunaDef = SOURCES.find((s) => state.enabled.includes(s.id) && s.id.indexOf('luna:') === 0);
     }
+    // 过滤开启时：敏感源不参与分类树（其分类标签也不应出现）
+    if (lunaDef && state.filterOn && FILTER_SOURCE_HINT.test(lunaDef.name)) lunaDef = null;
     if (!lunaDef) { box.innerHTML = ''; return; }
     try {
       const ad = ADAPTERS[lunaDef.id];
@@ -207,7 +210,7 @@
   function renderChips() {
     const box = $('#chips');
     // 分类标签跟随当前启用的源：全部 + 各启用源
-    const defs = activeSourceDefs().filter((d) => !(state.filterOn && ADULT_SOURCE_HINT.test(d.name)));
+    const defs = activeSourceDefs().filter((d) => !(state.filterOn && FILTER_SOURCE_HINT.test(d.name)));
     const opts = [{ id: '', name: '全部' }].concat(defs.map((d) => ({ id: d.id, name: d.name })));
     box.innerHTML = opts.map((o) =>
       '<span class="chip' + (state.sourceOnly === o.id ? ' active' : '') + '" data-src="' + o.id + '">' + esc(o.name) + '</span>'
@@ -261,11 +264,23 @@
       state.seenKeys.clear();
       state.pages = {};
       autoRetries = 0;
+      state.emptyLoads = 0;
       renderFilterSwitch();
       updateStatus(null, true);
     }
 
-    const defs = activeSourceDefs().filter((d) => !state.sourceOnly || d.id === state.sourceOnly);
+    // 聚合源列表：过滤开关开启时排除敏感源（节约资源、避免敏感源超时噪音）；
+    // 聚焦源若被过滤（敏感源被隐藏）则自动解除聚焦
+    if (state.filterOn && state.sourceOnly) {
+      const soDef = SOURCES.find((s) => s.id === state.sourceOnly);
+      if (soDef && FILTER_SOURCE_HINT.test(soDef.name)) {
+        state.sourceOnly = '';
+        renderChips();
+      }
+    }
+    const defs = activeSourceDefs()
+      .filter((d) => !(state.filterOn && FILTER_SOURCE_HINT.test(d.name)))
+      .filter((d) => !state.sourceOnly || d.id === state.sourceOnly);
     const all = [];
     const fails = [];
     const totals = {};
@@ -302,9 +317,9 @@
       for (const { src, items } of all) {
         for (const it of items) {
           if (!it || state.seenKeys.has(it.key)) continue;
-          // 数据层过滤：推广条目 + 成人内容（安全模式）
+          // 数据层过滤：推广条目 + 敏感内容（安全模式）
           if (isPromoContent(it)) continue;
-          if (state.filterOn && isAdultContent(it)) continue;
+          if (state.filterOn && isFilteredContent(it)) continue;
           // LunaTV 跨子站去重：同片名合并成一张卡，多线路挂到 streams
           if (it.sourceId && it.sourceId.indexOf('luna:') === 0) {
             const dk = lunaDedupKey(it);
@@ -337,7 +352,7 @@
 
       // 首次加载轮转混合排布；加载更多只追加本次新增条目
       renderCards(reset ? merged : added, reset);
-      renderLoadMore(added.length === 0);
+      renderLoadMore(added.length === 0, fails.length === defs.length);
 
       // 兜底：全部源接口都报错（网络抖动）才自动重试，最多 2 次；
       // 搜索无结果（源正常返回空）不重试，避免死循环
@@ -395,7 +410,7 @@
     let html = '<span>版本号：v' + CONFIG.version + '</span>';
     if (info.counts && info.counts.length) {
       html += info.counts.map(([n, c]) => {
-        if (state.filterOn && ADULT_SOURCE_HINT.test(n)) return '';
+        if (state.filterOn && FILTER_SOURCE_HINT.test(n)) return '';
         const t = info.totals && info.totals[n];
         // 分类模式下 total=-1 不显示库藏数
         return '<span>' + esc(n) + (t && t > 0 ? ' 库藏约 <b>' + fmtCount(t) + '</b>' : '') + '</span>';
@@ -515,11 +530,28 @@
     });
   }
 
-  function renderLoadMore(empty) {
-    if (empty) {
-      loadmoreWrap.style.display = 'none';
+  function renderLoadMore(empty, allFailed) {
+    if (empty && !allFailed) {
+      // 源正常但本次没有新内容（去重/到头）：连续 2 次无新内容才隐藏按钮
+      state.emptyLoads = (state.emptyLoads || 0) + 1;
+      if (state.emptyLoads >= 2) {
+        loadmoreWrap.style.display = 'none';
+        return;
+      }
+      loadmoreWrap.style.display = 'block';
+      loadmoreTip.textContent = '本次暂无新内容 · 可继续尝试加载';
+      $('#loadMoreBtn').disabled = false;
       return;
     }
+    if (empty && allFailed) {
+      // 全部源网络失败：保留按钮提示重试，避免按钮消失无法再点
+      state.emptyLoads = 0;
+      loadmoreWrap.style.display = 'block';
+      loadmoreTip.textContent = '网络波动，本次未取到内容 · 点击重试';
+      $('#loadMoreBtn').disabled = false;
+      return;
+    }
+    state.emptyLoads = 0;
     loadmoreWrap.style.display = 'block';
     loadmoreTip.textContent = '已加载 ' + state.items.length + ' 部 · 可继续加载更多';
     $('#loadMoreBtn').disabled = false;
@@ -607,9 +639,9 @@
       renderViewList(viewFiltered(loadFavs()), '还没有收藏 —— 在播放页点右上角星标收藏', 'favs');
     }
   }
-  /* 视图（历史/收藏）按成人过滤开关过滤 */
+  /* 视图（历史/收藏）按内容安全过滤开关过滤 */
   function viewFiltered(arr) {
-    return state.filterOn ? arr.filter((x) => !isAdultContent(x)) : arr;
+    return state.filterOn ? arr.filter((x) => !isFilteredContent(x)) : arr;
   }
   function reapplyManageClass() {
     grid.querySelectorAll('.card').forEach((c) => {
@@ -728,7 +760,7 @@
       state.filterOn = check.checked;
       saveFilter();
       renderFilterSwitch();
-      showToast(state.filterOn ? '成人内容过滤已开启（安全模式）' : '成人内容过滤已关闭', state.filterOn ? 'ok' : '');
+      showToast(state.filterOn ? '敏感内容过滤已开启（安全模式）' : '敏感内容过滤已关闭', state.filterOn ? 'ok' : '');
       loadFeed(true);
     });
   }

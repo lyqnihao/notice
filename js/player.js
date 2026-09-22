@@ -6,9 +6,18 @@
   'use strict';
 
   const $ = (s) => document.querySelector(s);
-  const video = $('#video');
+  let video = $('#video');
   const videoLoading = $('#videoLoading');
   const videoLoadingText = $('#videoLoadingText');
+
+  /* 播放页标题（tab）：片名 + 集数 + 线路名，不用站名 */
+  function updateTitle() {
+    const eps = (streams[curStream] && streams[curStream].episodes) || [];
+    let t = item && item.title ? '《' + item.title + '》' : '正在播放';
+    if (eps.length > 1) t += ' 第 ' + (curEp + 1) + ' 集';
+    if (streams[curStream] && streams[curStream].name) t += ' · ' + streams[curStream].name;
+    document.title = t;
+  }
 
   let item = null;
   let resolvedUrl = '';        // 当前直链
@@ -16,6 +25,16 @@
   let hls = null;
   let adFilterOn = true;
   let playlistText = '';       // 原始 m3u8 文本（广告过滤用）
+
+  /* 自动连播 + 跨集预热 */
+  let autoNext = true;
+  let nextWarm = null;         // { ep, url, label } 预热好的下一集（blob 已清洗）
+  let warmToken = 0;           // 预热令牌：切集/换线路时失效旧预热
+  let preVideo = null;         // 隐藏预载 video（真预缓存下一集媒体）
+  let preHls = null;           // 预载 hls 实例（切换时无缝接续）
+  function loadAutoNext() {
+    try { autoNext = localStorage.getItem('tideflow_autonext_v1') !== '0'; } catch (e) { /* ignore */ }
+  }
 
   /* 续播参数：hash 优先（部署平台会剥 query，hash 完整保留），兼容 search 双通道 */
   let resumeSt = -1;
@@ -155,7 +174,157 @@
       resolvedUrl = eps[curEp].url;
       $('#directBox').textContent = resolvedUrl;
     }
+    nextWarm = null;
+    warmToken++;
+    warming = false;
+    updateTitle();
     play().catch(() => { /* ignore */ });
+  }
+
+  /* 统一切集：选集点击与自动连播共用；优先无缝接续预载实例，其次预热 blob */
+  function switchToEpisode(i) {
+    const eps = (streams[curStream] && streams[curStream].episodes) || [];
+    if (i < 0 || i >= eps.length) return;
+    saveProgress(); // 切集前保存当前集进度
+    curEp = i;
+    resumeT = 0;
+    resolvedUrl = eps[i].url;
+    $('#directBox').textContent = resolvedUrl;
+    $('#adfNote').textContent = '';
+    // 更新选集高亮
+    document.querySelectorAll('#epList .ep-chip').forEach((x, k) => {
+      x.classList.toggle('active', epPage * EP_PAGE_SIZE + k === i);
+    });
+    const w = nextWarm && nextWarm.ep === i ? nextWarm : null;
+    nextWarm = null;
+    warmToken++;
+    warming = false;
+    mediaUrl = eps[i].url;
+    updateTitle();
+    // ① 预载实例有真实缓冲 → 无缝接续（几乎零等待）
+    if (swapToPreloaded()) return;
+    // ② 预热 blob 缓存 → 本地秒解析，跳过网络拉列表
+    if (w && /^blob:/.test(w.url)) {
+      startHls(w.url);
+      return;
+    }
+    // ③ 常规播放
+    play().catch(() => { /* ignore */ });
+  }
+
+  /* 隐藏预载 video：预热下一集时真实拉取并缓冲前几个分段 */
+  function warmMedia(blobUrl) {
+    killPreVideo();
+    preVideo = document.createElement('video');
+    preVideo.muted = true;
+    preVideo.preload = 'auto';
+    // 全尺寸覆盖在主 video 上（透明不可见）：保持真实渲染/解码，避免被浏览器降级节流
+    preVideo.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;pointer-events:none;';
+    $('#videoBox').appendChild(preVideo);
+    if (window.Hls && Hls.isSupported()) {
+      preHls = new Hls({
+        maxBufferLength: 90, maxMaxBufferLength: 180, backBufferLength: 30, lowLatencyMode: false,
+      });
+      preHls.loadSource(blobUrl);
+      preHls.attachMedia(preVideo);
+      preHls.on(Hls.Events.MANIFEST_PARSED, () => { preVideo.play().catch(() => { /* 静音自动播放一般允许 */ }); });
+    } else if (preVideo.canPlayType('application/vnd.apple.mpegurl')) {
+      preVideo.src = blobUrl;
+      preVideo.load();
+    }
+  }
+  function killPreVideo() {
+    if (preHls) { try { preHls.destroy(); } catch (e) { /* ignore */ } preHls = null; }
+    if (preVideo) { try { preVideo.remove(); } catch (e) { /* ignore */ } preVideo = null; }
+  }
+
+  /* 无缝接续：把预载 video 提升为主播放，保留已缓冲数据继续播 */
+  function swapToPreloaded() {
+    const pv = preVideo;
+    if (!pv) return false;
+    // 只要有已缓冲数据即无缝接续（readyState>=1 或已缓冲），尽量利用预热成果
+    const hasData = pv.readyState >= 1 || (pv.buffered && pv.buffered.length > 0);
+    if (!hasData) { killPreVideo(); return false; }
+    const ph = preHls;
+    stopHls();
+    pv.muted = false;
+    pv.controls = true;
+    pv.style.cssText = '';
+    pv.id = 'video';
+    video.replaceWith(pv);
+    video = pv;
+    preVideo = null;
+    preHls = null;
+    hls = ph; // 主 hls 指向预载实例，继续拉后续分段
+    bindVideoEvents(); // 重绑进度/保存/连播/预热监听
+    if (hls && hls.startLoad) { try { hls.startLoad(); } catch (e) { /* ignore */ } }
+    video.play().catch(() => {
+      showLoading('点击播放继续'); setTimeout(hideLoading, 1400);
+    });
+    return true;
+  }
+
+  /* 预热下一集：后台解析直链 → 子列表 → 广告清洗 → blob 缓存，播完切过去秒开 */
+  let warming = false;
+  function warmNextEpisode() {
+    const eps = (streams[curStream] && streams[curStream].episodes) || [];
+    const ni = curEp + 1;
+    if (ni >= eps.length) return;
+    if (nextWarm && nextWarm.ep === ni) return;
+    if (warming) return; // 已在预热中
+    const url = eps[ni].url;
+    const my = warmToken;
+    if (!/\.m3u8($|\?)/i.test(url)) { nextWarm = { ep: ni, url: url }; return; }
+    warming = true;
+    (async () => {
+      try {
+        let masterText = '';
+        try {
+          const res = await fetchWithTimeout(url, 10000);
+          if (res.ok) masterText = await res.text();
+        } catch (e) { /* ignore */ }
+        if (!masterText) {
+          try {
+            const r2 = await fetchWithTimeout(lunaRelay(url), 10000);
+            masterText = await r2.text();
+          } catch (e) { /* ignore */ }
+        }
+        if (my !== warmToken) return; // 已切集/换线路，预热作废
+        let subUrl = url;
+        let subText = '';
+        const variant = masterText ? firstVariantUrl(masterText, url) : null;
+        if (variant) {
+          subUrl = variant;
+          try {
+            const r3 = await fetchWithTimeout(variant, 10000);
+            subText = await r3.text();
+          } catch (e) {
+            try {
+              const r4 = await fetchWithTimeout(lunaRelay(variant), 10000);
+              subText = await r4.text();
+            } catch (e2) { /* ignore */ }
+          }
+        }
+        if (my !== warmToken) return;
+        if (subText) {
+          const base = subUrl;
+          const filtered = adFilterOn ? stripForeignSegments(subText, base) : subText;
+          const absolute = absolutizeSegments(filtered, base);
+          const blob = new Blob([absolute], { type: 'application/vnd.apple.mpegurl' });
+          const blobUrl = URL.createObjectURL(blob);
+          nextWarm = { ep: ni, url: blobUrl, label: eps[ni].label };
+          // 真预载：隐藏 video + 独立播放实例拉取并缓冲前几个分段（切换时无缝接续）
+          warmMedia(blobUrl);
+        } else {
+          nextWarm = { ep: ni, url: subUrl, label: eps[ni].label };
+        }
+        if (my !== warmToken) return;
+        $('#adfNote').textContent = '下一集已预热：' + (nextWarm.label || '');
+      } catch (e) { /* 预热失败静默：切集时走正常解析 */ }
+      finally {
+        if (my === warmToken) warming = false;
+      }
+    })();
   }
 
   /* ---------- 选集（分页渲染，支持几百集的短剧/长剧） ---------- */
@@ -191,14 +360,7 @@
     }
     $('#epList').querySelectorAll('.ep-chip').forEach((btn) => {
       btn.addEventListener('click', () => {
-        const i = +btn.dataset.i;
-        curEp = i;
-        resolvedUrl = eps[i].url;
-        $('#directBox').textContent = resolvedUrl;
-        $('#epList').querySelectorAll('.ep-chip').forEach((x) => x.classList.remove('active'));
-        btn.classList.add('active');
-        $('#adfNote').textContent = '';
-        play().catch(() => { /* ignore */ });
+        switchToEpisode(epPage * EP_PAGE_SIZE + +btn.dataset.i);
       });
     });
   }
@@ -254,6 +416,9 @@
   /* ---------- 播放 ---------- */
   async function play() {
     stopHls();
+    // 常规播放路径：销毁预载实例并复位预热状态（切集/重试/换线路时旧预热作废）
+    killPreVideo();
+    warming = false;
     if (/\.m3u8($|\?)/i.test(resolvedUrl)) {
       await playHls(resolvedUrl);
       return;
@@ -335,7 +500,13 @@
   function startHls(url) {
     stopHls();
     if (window.Hls && Hls.isSupported()) {
-      hls = new Hls({ maxBufferLength: 30 });
+      // 预缓存增强：加大前向/后向缓存（90s 水位，播放临近结尾仍持续拉取），点播流畅度优先
+      hls = new Hls({
+        maxBufferLength: 90,
+        maxMaxBufferLength: 180,
+        backBufferLength: 90,
+        lowLatencyMode: false,
+      });
       hls.loadSource(url);
       hls.attachMedia(video);
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -384,11 +555,85 @@
       }
     } catch (e) { /* ignore */ }
   }
-  function bindProgress() {
+  /* 秒 → h:mm:ss / mm:ss */
+  function fmtClock(s) {
+    if (!isFinite(s) || s < 0) s = 0;
+    const sec = Math.floor(s % 60);
+    const min = Math.floor(s / 60) % 60;
+    const hr = Math.floor(s / 3600);
+    const p = (n) => String(n).padStart(2, '0');
+    return hr > 0 ? hr + ':' + p(min) + ':' + p(sec) : p(min) + ':' + p(sec);
+  }
+
+  /* 绑定当前 video 的全部播放相关事件（初绑与无缝交换后重绑共用） */
+  function bindVideoEvents() {
+    const progRow = $('#progRow');
+    const progBar = $('#progBar');
+    const progCur = $('#progCur');
+    const progDur = $('#progDur');
+    let progDragging = false;
+    function showProg() { if (progRow) progRow.style.display = 'flex'; }
+    function upd() {
+      const d = video.duration;
+      const t = video.currentTime;
+      if (!isFinite(d) || d <= 0) return;
+      showProg(); // 有时长即显示（HLS 下 loadedmetadata 可能不触发，兜底）
+      progBar.max = 1000;
+      progBar.value = Math.round(t / d * 1000);
+      progCur.textContent = fmtClock(t);
+      progDur.textContent = fmtClock(d);
+    }
+    video.addEventListener('playing', () => { hideLoading(); showProg(); });
+    video.addEventListener('loadedmetadata', () => {
+      seekResume();
+      showProg();
+    });
+    video.addEventListener('durationchange', showProg);
+    video.addEventListener('canplay', showProg);
+    video.addEventListener('error', () => {
+      if (!videoLoading.style.display || videoLoading.style.display === 'none') {
+        showLoading('视频加载失败 —— 可点「重试」或换「外部播放器」');
+        setTimeout(hideLoading, 2500);
+      }
+    });
+    // 自动连播：播完自动接下一集
+    video.addEventListener('ended', () => {
+      if (!autoNext) return;
+      const eps = (streams[curStream] && streams[curStream].episodes) || [];
+      const ni = curEp + 1;
+      if (ni < eps.length) switchToEpisode(ni);
+    });
+    // 距结尾 120 秒内预热下一集（真预载媒体，切换无缝；120s 提前量覆盖慢网络）
+    let warmedAt = 0;
+    video.addEventListener('timeupdate', () => {
+      if (!autoNext || nextWarm) return;
+      const d = video.duration;
+      const t = video.currentTime;
+      if (!isFinite(d) || d <= 0) return;
+      const now = Date.now();
+      if (d - t < 120 && now - warmedAt > 10000) { warmedAt = now; warmNextEpisode(); }
+    });
+    // 进度保存（每 5 秒）+ 常驻进度条刷新
     video.addEventListener('timeupdate', () => {
       const now = Date.now();
       if (now - lastSaveAt > 5000) { lastSaveAt = now; saveProgress(); }
+      if (!progDragging && progBar) upd();
     });
+    // 常驻进度条拖动
+    if (progBar) {
+      progBar.addEventListener('input', () => {
+        progDragging = true;
+        upd();
+      });
+      progBar.addEventListener('change', () => {
+        progDragging = false;
+        if (isFinite(video.duration) && video.duration > 0) {
+          video.currentTime = (progBar.value / 1000) * video.duration;
+        }
+      });
+    }
+  }
+  function bindProgress() {
     window.addEventListener('beforeunload', saveProgress);
     document.addEventListener('visibilitychange', () => { if (document.hidden) saveProgress(); });
   }
@@ -488,15 +733,20 @@
       e.preventDefault();
       $('#adfCheck').click();
     });
-    video.addEventListener('playing', hideLoading);
-    video.addEventListener('loadedmetadata', () => { seekResume(); });
-    bindProgress();
-    video.addEventListener('error', () => {
-      if (!videoLoading.style.display || videoLoading.style.display === 'none') {
-        showLoading('视频加载失败 —— 可点「重试」或换「外部播放器」');
-        setTimeout(hideLoading, 2500);
-      }
+    // 自动连播开关（记忆偏好）
+    $('#autoNextCheck').checked = autoNext;
+    $('#autoNextCheck').addEventListener('change', (e) => {
+      autoNext = e.target.checked;
+      try { localStorage.setItem('tideflow_autonext_v1', autoNext ? '1' : '0'); } catch (err) { /* ignore */ }
+      if (!autoNext) { nextWarm = null; warmToken++; }
     });
+    const anTrack = document.querySelector('#autoNextRow .track');
+    if (anTrack) {
+      anTrack.addEventListener('click', (e) => {
+        e.preventDefault();
+        $('#autoNextCheck').click();
+      });
+    }
   }
 
   /* ---------- 收藏 ---------- */
@@ -546,6 +796,7 @@
 
   /* ---------- 初始化 ---------- */
   async function init() {
+    loadAutoNext();
     readParams();
     item = loadItem();
     if (!item) {
@@ -562,6 +813,9 @@
     renderStreams();
     bindEpPager();
     bindTools();
+    bindVideoEvents();
+    bindProgress();
+    updateTitle();
     try {
       await resolveDirect();
       await play();

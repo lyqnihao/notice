@@ -15,7 +15,7 @@
 
 <header class="site">
   <div class="player-head">
-    <a class="back-link" href="index.html?v=1.3.17">
+    <a class="back-link" href="index.html?v=1.3.22">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
       返回首页
     </a>
@@ -53,6 +53,22 @@
       <button class="seek-btn fwd" data-d="10" title="快进 10 秒">10秒 »</button>
       <button class="seek-btn fwd" data-d="60" title="快进 1 分钟">1分 »</button>
       <button class="seek-btn fwd" data-d="600" title="快进 10 分钟">10分 »</button>
+    </div>
+
+    <!-- 常驻进度条：当前集进度，可拖动 -->
+    <div class="prog-row" id="progRow" style="display:none">
+      <span class="prog-cur" id="progCur">00:00</span>
+      <input type="range" id="progBar" min="0" max="1000" value="0" step="1" title="当前集进度（可拖动）">
+      <span class="prog-dur" id="progDur">00:00</span>
+    </div>
+
+    <!-- 自动连播：连续剧播完自动接下一集，结尾预缓存下一集 -->
+    <div class="adf-row" style="margin-top:8px" id="autoNextRow">
+      <span>自动连播<span class="note">连续剧播完自动接下一集 · 结尾自动预热下一集</span></span>
+      <span class="switch">
+        <input type="checkbox" id="autoNextCheck" checked>
+        <span class="track"></span>
+      </span>
     </div>
 
     <div class="ep-panel" id="streamPanel" style="display:none">
@@ -109,12 +125,12 @@
 </div>
 
 <footer class="foot">
-  潮汐 TIDEFLOW · 多源免费视频聚合 · 直链播放，不经过本站服务器 · 成人内容过滤默认开启（安全模式）
+  潮汐 TIDEFLOW · 多源免费视频聚合 · 直链播放，不经过本站服务器 · 内容安全过滤默认开启（安全模式）
 </footer>
 
-<script src="js/config.js?v=1.3.17"></script>
-<script src="js/sources.js?v=1.3.17"></script>
-<script src="js/hls.min.js?v=1.3.17"></script>
-<script src="js/player.js?v=1.3.17"></script>
+<script src="js/config.js?v=1.3.22"></script>
+<script src="js/sources.js?v=1.3.22"></script>
+<script src="js/hls.min.js?v=1.3.22"></script>
+<script src="js/player.js?v=1.3.22"></script>
 </body>
 </html>
