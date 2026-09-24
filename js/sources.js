@@ -359,7 +359,8 @@ async function lunaPickPool() {
 /* 单个采集站适配器工厂 */
 function lunaSiteAdapter(site) {
   async function fetchList(page, q) {
-    let u = site.api + (site.api.includes('?') ? '&' : '?') + 'ac=videolist&pg=' + page + '&limit=15';
+    // 搜索时加大 limit，避免匹配结果被 15 条截断（如多季剧只返回前几季）
+    let u = site.api + (site.api.includes('?') ? '&' : '?') + 'ac=videolist&pg=' + page + '&limit=' + (q ? 40 : 15);
     if (q) u += '&wd=' + encodeURIComponent(q);
     const res = await fetchWithTimeout(lunaRelay(u), CONFIG.requestTimeout);
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -447,6 +448,30 @@ function lunaSiteAdapter(site) {
           const res2 = await fetchWithTimeout(lunaRelay(u2), CONFIG.requestTimeout);
           const j2 = await res2.json();
           if (Array.isArray(j2.list) && j2.list.length) list = j2.list;
+        } catch (e) { /* ignore */ }
+      }
+      // 搜索兜底：部分采集站搜索接口不可用（wd 返回空/被中转拒绝 1002），并行翻浏览列表本地匹配关键词
+      if (q && page === 1 && list.length === 0) {
+        try {
+          const PAGES = 6, LIMIT = 50, CAP = 240;
+          const jobs = [];
+          for (let p = 1; p <= PAGES; p++) {
+            const u3 = site.api + (site.api.includes('?') ? '&' : '?') + 'ac=videolist&pg=' + p + '&limit=' + LIMIT;
+            jobs.push(fetchWithTimeout(lunaRelay(u3), 8000).then((r) => r.json()).catch(() => null));
+          }
+          const ress = await Promise.all(jobs); // 并行翻页：总耗时≈单页耗时，避免串行超时
+          const pool = [];
+          for (const j of ress) {
+            if (!j || !Array.isArray(j.list)) continue;
+            pool.push(...j.list);
+            if (pool.length >= CAP) break;
+          }
+          const ql = q.toLowerCase();
+          const matched = pool.filter((v) => String(v.vod_name || '').toLowerCase().includes(ql));
+          if (matched.length) {
+            list = matched;
+            this._total = matched.length; // 兜底结果即全部匹配，不再翻页
+          }
         } catch (e) { /* ignore */ }
       }
       const out = [];

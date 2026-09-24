@@ -299,6 +299,9 @@ header.site {
 .sec-title { font-size: 13px; font-weight: 700; color: var(--amber-2); margin: 18px 0 10px; display: flex; align-items: center; gap: 8px; }
 .sec-title:first-child { margin-top: 0; }
 .sec-title .hint { font-weight: 400; color: var(--faint); font-size: 11.5px; }
+/* 源池统计：面板头部固定，不随源列表滚动 */
+.src-stats-fixed { padding: 4px 20px 10px; border-bottom: 1px solid var(--line); background: var(--bg); }
+.src-stats-fixed .sec-title { margin: 4px 0 0; }
 .src-row {
   display: flex; align-items: center; gap: 12px; padding: 11px 12px;
   border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px;

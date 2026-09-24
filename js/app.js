@@ -243,7 +243,7 @@
     const adapter = ADAPTERS[src.id];
     if (!adapter) return [];
     return adapter.fetch({
-      query: state.query,
+      query: state.query ? searchMain(state.query) : state.query,
       category: state.category,
       page,
       sourceOnly: state.sourceOnly,
@@ -336,13 +336,15 @@
         }
       }
 
-      // 搜索模式按相关度排序（精确/前缀/包含优先），浏览模式轮转混合排布（多源内容交错）
+      // 搜索模式按相关度排序（精确/归一化/前缀/包含/分词命中），浏览模式轮转混合排布
       let merged;
       if (state.query && reset) {
         const q = state.query.trim().toLowerCase();
         const scored = state.items.slice().map((it, idx) => ({ it, idx, s: searchScore(it, q) }));
         scored.sort((a, b) => (b.s - a.s) || (a.idx - b.idx));
-        merged = scored.map((x) => x.it);
+        // 过滤零相关结果，避免「一大堆不相关」；全部零分时兜底保留前 12 条防空白
+        const keep = scored.filter((x) => x.s > 0);
+        merged = (keep.length ? keep : scored.slice(0, 12)).map((x) => x.it);
       } else {
         merged = roundRobin(state.items.slice(), defs.map((d) => d.id));
       }
@@ -372,12 +374,56 @@
     return (it.title || '').replace(/[\s\u3000:：《》"'·.\-!！?？,，。]/g, '').toLowerCase();
   }
 
-  /* 搜索结果相关度：标题完全相等 > 前缀 > 包含 > 标签/演员命中 */
+  /* 搜索词归一化：去季后缀 + 去标点空白，用于「刚播那部」精确回捞 */
+  function normForSearch(s) {
+    return String(s || '').toLowerCase()
+      .replace(/第[一二三四五六七八九十百千万\d]+[季部集]/g, '')
+      .replace(/[？?！!。，,；;、：:【】\[\]()（）"'“”《》·.\-—\s]+/g, '');
+  }
+
+  /* 拆出搜索核心词：去季后缀/停用词/标点，中文按标点分段、英文按空格拆词 */
+  function searchTerms(q) {
+    let s = String(q || '').toLowerCase();
+    s = s.replace(/第[一二三四五六七八九十百千万\d]+[季部集]/g, ' ');
+    s = s.replace(/全集|完整版|国语|粤语|中字|高清|蓝光/g, ' ');
+    s = s.replace(/[？?！!。，,；;、：:【】\[\]()（）"'“”《》·.\-—]/g, ' ');
+    const cjk = s.replace(/[\x00-\x7f]+/g, ' '); // 中文段
+    const ascii = s.replace(/[^\x00-\x7f]+/g, ' '); // 英文词
+    const terms = [];
+    for (const seg of (cjk + ' ' + ascii).split(/\s+/)) {
+      const t = seg.trim();
+      if (!t) continue;
+      if (/^[\x00-\x7f]+$/.test(t)) { if (t.length >= 3) terms.push(t); }
+      else if (t.length >= 2) terms.push(t);
+    }
+    return terms;
+  }
+
+  /* 源站搜索主词：取标题主体（第一段、去季后缀），长标题不再整串传给源站 */
+  function searchMain(q) {
+    let s = String(q || '').trim();
+    s = s.replace(/第[一二三四五六七八九十百千万\d]+[季部集]/g, '');
+    s = s.replace(/全集|完整版|国语|粤语|中字|高清|蓝光/g, '');
+    const segs = s.split(/[？?！!。，,；;、：:【】\[\]()（）"'“”《》·.\-—\s]+/).map((x) => x.trim()).filter((x) => x.length >= 2);
+    return (segs.length ? segs[0] : s.trim()) || q.trim();
+  }
+
+  /* 搜索结果相关度：精确 > 归一化相等（刚播那部）> 前缀 > 包含 > 分词命中 > 标签/演员 */
   function searchScore(it, q) {
     const t = (it.title || '').toLowerCase();
     if (t === q) return 100;
+    const tn = normForSearch(t);
+    const qn = normForSearch(q);
+    if (tn && qn && tn === qn) return 90;
     if (t.startsWith(q)) return 60;
     if (t.includes(q)) return 30;
+    const terms = searchTerms(q);
+    if (terms.length) {
+      let hit = 0;
+      for (const w of terms) if (t.includes(w)) hit++;
+      if (hit === terms.length && terms.length > 1) return 45;
+      if (hit) return 15 + hit * 10;
+    }
     const tagHit = (it.tags || []).concat(it.actors || []).some((x) => String(x).toLowerCase().includes(q));
     return tagHit ? 15 : 0;
   }
@@ -775,10 +821,11 @@
    * ========================================================= */
   function renderSourceModal() {
     const body = $('#sourceBody');
+    const statsBox = $('#srcStatsFixed');
     const pool = SOURCES.filter((s) => !s.candidate);
     const candidates = SOURCES.filter((s) => s.candidate);
 
-    // 统计：总数 / 已启用 / 体检有效 / 失效 / 未体检
+    // 统计：总数 / 已启用 / 体检有效 / 失效 / 未体检（固定在头部，不随列表滚动）
     const enabledCount = state.enabled.filter((id) => SOURCES.some((s) => s.id === id)).length;
     let okCount = 0, deadCount = 0, untestedCount = 0;
     SOURCES.forEach((s) => {
@@ -790,9 +837,21 @@
     const dead = candidates.filter((s) => state.scanResults[s.id] && !state.scanResults[s.id].ok);
     const aliveCandidates = candidates.filter((s) => !dead.includes(s));
 
-    let html = '<div class="sec-title">当前源池 <span class="hint">共 ' + SOURCES.length + ' 条 · 已启用 ' + enabledCount + '/' + CONFIG.maxActive +
-      ' · 有效 ' + okCount + ' · 失效 ' + deadCount + ' · 未体检 ' + untestedCount + '</span></div>';
-    html += pool.map((s) => srcRowHtml(s)).join('');
+    if (statsBox) {
+      statsBox.innerHTML = '<div class="sec-title">当前源池 <span class="hint">共 ' + SOURCES.length + ' 条 · 已启用 ' + enabledCount + '/' + CONFIG.maxActive +
+        ' · 有效 ' + okCount + ' · 失效 ' + deadCount + ' · 未体检 ' + untestedCount + '</span></div>';
+    }
+
+    // 源列表按质量分降序排序（已体检的在前，未体检的保持原顺序）
+    const poolSorted = pool.slice().sort((a, b) => {
+      const sa = state.scanResults[a.id], sb = state.scanResults[b.id];
+      if (sa && !sb) return -1;
+      if (!sa && sb) return 1;
+      if (sa && sb) return sourceScore(sb) - sourceScore(sa);
+      return SOURCES.indexOf(a) - SOURCES.indexOf(b);
+    });
+
+    let html = poolSorted.map((s) => srcRowHtml(s)).join('');
 
     html += '<div class="sec-title">在线探测候选源 <span class="hint">逐个实测你当前网络的可达性，通了的可「加入源池」</span></div>';
     html += aliveCandidates.map((s) => srcRowHtml(s)).join('');
@@ -825,6 +884,17 @@
     showToast('已清理 ' + dead.length + ' 个失效源', 'ok');
   }
 
+  /* 源质量综合分（0-100，越高越好）：直链 / 延迟 / 库量 / 漫剧量加权 */
+  function sourceScore(r) {
+    if (!r || !r.ok) return 0;
+    let s = 0;
+    s += r.directOk ? 20 : 0;
+    s += r.latencyMs < 1500 ? 40 : (r.latencyMs < 4000 ? 30 : (r.latencyMs < 8000 ? 18 : 8));
+    s += r.count > 0 ? (r.count > 100000 ? 25 : r.count > 30000 ? 20 : 12) : 0;
+    s += Math.min(r.mangaCount || 0, 15);
+    return Math.min(100, s);
+  }
+
   function srcRowHtml(s) {
     const enabled = state.enabled.includes(s.id);
     const scan = state.scanResults[s.id];
@@ -833,7 +903,9 @@
       metricsHtml = scan.ok
         ? '<span class="metric"><span class="state-dot ok"></span>延迟 <b>' + scan.latencyMs + '</b>ms</span>' +
           '<span class="metric">约 <b>' + (scan.count > 0 ? fmtCount(scan.count) : '—') + '</b> 条</span>' +
-          '<span class="metric">' + (scan.directOk ? '直链可用' : '直链待测') + '</span>'
+          (scan.mangaCount != null ? '<span class="metric">漫剧 <b>' + scan.mangaCount + '</b> 条</span>' : '') +
+          '<span class="metric">' + (scan.directOk ? '直链可用' : '直链待测') + '</span>' +
+          '<span class="metric">综合 <b style="color:' + (sourceScore(scan) >= 75 ? 'var(--green)' : sourceScore(scan) >= 50 ? 'var(--amber-2)' : 'var(--red)') + '">' + sourceScore(scan) + '</b> 分</span>'
         : '<span class="metric"><span class="state-dot bad"></span>' + esc(scan.note || '不可达') + '</span>';
     }
     return '<div class="src-row" data-src="' + s.id + '">' +
@@ -884,6 +956,28 @@
   }
 
   /* 扫描体检 */
+  /* 漫剧内容量测试：并行拉前 2 页浏览列表，统计分类/片名含「漫剧」的条数（越多漫剧供给越足） */
+  async function testMangaCount(s) {
+    try {
+      const LIMIT = 50;
+      const jobs = [];
+      for (let p = 1; p <= 2; p++) {
+        const u = s.api + (s.api.includes('?') ? '&' : '?') + 'ac=videolist&pg=' + p + '&limit=' + LIMIT;
+        jobs.push(fetchWithTimeout(lunaRelay(u), 8000).then((r) => r.json()).catch(() => null));
+      }
+      const ress = await Promise.all(jobs);
+      let n = 0;
+      for (const j of ress) {
+        if (!j || !Array.isArray(j.list)) continue;
+        for (const v of j.list) {
+          const cn = String(v.type_name || v.vod_class || '') + ' ' + String(v.vod_name || '');
+          if (/漫剧/.test(cn)) n++;
+        }
+      }
+      return n;
+    } catch (e) { return 0; }
+  }
+
   async function scanAll() {
     const body = $('#sourceBody');
     const btn = $('#scanAllBtn');
@@ -897,6 +991,11 @@
       const result = adapter
         ? await adapter.test().catch(() => ({ ok: false, latencyMs: -1, count: 0, directOk: false, note: '体检失败' }))
         : { ok: false, latencyMs: -1, count: 0, directOk: false, note: '无适配器' };
+      // 漫剧内容量测试（仅采集站源）：浏览列表统计「漫剧」条数，越多越好
+      if (result.ok && s.id.indexOf('luna:') === 0 && s.api) {
+        const mc = await testMangaCount(s);
+        if (mc >= 0) result.mangaCount = mc;
+      }
       state.scanResults[s.id] = result;
       saveScanResults();
       // 更新该行
@@ -922,7 +1021,7 @@
       .sort((a, b) => {
         const ra = state.scanResults[a.id];
         const rb = state.scanResults[b.id];
-        const score = (r) => (r.directOk ? 0 : 1000) + r.latencyMs + (r.count > 0 ? 0 : 2000);
+        const score = (r) => (r.directOk ? 0 : 1000) + r.latencyMs + (r.count > 0 ? 0 : 2000) - (r.mangaCount || 0) * 3;
         return score(ra) - score(rb);
       })
       .slice(0, CONFIG.maxActive)
