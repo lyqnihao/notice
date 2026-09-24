@@ -68,6 +68,37 @@
     return null;
   }
 
+  /* 跨设备分享兜底：从 hash 参数解码「播放页 + 直链」自包含条目。
+     u = 当前集最终直链（本设备已验证可播，非 blob）；a = 全部集地址（可选，短才带）；
+     n / src = 标题与来源。陌生人首次打开也能直接播放，不依赖任何本地缓存。 */
+  function loadItemFromHash() {
+    try {
+      const h = new URLSearchParams(location.hash.slice(1));
+      const u = h.get('u');
+      if (!u) return null;
+      const n = h.get('n') || '未命名';
+      const src = h.get('src') || '';
+      let streams = null;
+      const a = h.get('a');
+      if (a) {
+        const all = JSON.parse(a); // [{name, episodes:[url,...]}]
+        if (Array.isArray(all) && all.length) {
+          streams = all.map((s) => ({
+            name: s.name || '',
+            episodes: (s.episodes || []).map((url, i) => ({ label: '第' + (i + 1) + '集', url: String(url) })),
+          }));
+        }
+      }
+      if (!streams) {
+        streams = [{ name: src || '分享', episodes: [{ label: '播放', url: u }] }];
+      }
+      return {
+        key: 'shared', id: 'shared', title: n, source: src, sourceId: '',
+        streams, episodes: streams[0].episodes, direct: u,
+      };
+    } catch (e) { return null; }
+  }
+
   /* ---------- 工具 ---------- */
   function esc(s) {
     return String(s == null ? '' : s)
@@ -579,7 +610,7 @@
       if (!isFinite(d) || d <= 0) return;
       showProg(); // 有时长即显示（HLS 下 loadedmetadata 可能不触发，兜底）
       progBar.max = 1000;
-      progBar.value = Math.round(t / d * 1000);
+      if (!progDragging) progBar.value = Math.round(t / d * 1000); // 拖动中不覆盖用户位置
       progCur.textContent = fmtClock(t);
       progDur.textContent = fmtClock(d);
     }
@@ -623,7 +654,10 @@
     if (progBar) {
       progBar.addEventListener('input', () => {
         progDragging = true;
-        upd();
+        // 跟随拖动位置显示，不被播放进度抢回
+        if (isFinite(video.duration) && video.duration > 0) {
+          progCur.textContent = fmtClock((progBar.value / 1000) * video.duration);
+        }
       });
       progBar.addEventListener('change', () => {
         progDragging = false;
@@ -652,8 +686,14 @@
             return;
           }
           const nt = Math.min(Math.max(video.currentTime + d, 0), video.duration);
+          const wasPlaying = !video.paused && !video.ended;
           video.currentTime = nt;
-          if (video.paused) video.play().catch(() => { /* ignore */ });
+          if (wasPlaying) {
+            // hls 重载会中止 play()：先即时恢复，被中止则稍后重试一次
+            const tryPlay = () => video.play().catch(() => setTimeout(() => video.play().catch(() => { /* ignore */ }), 400));
+            tryPlay();
+          }
+          // 原暂停状态下定位：保持暂停，不打断用户操作
         });
       });
     }
@@ -671,6 +711,63 @@
     $('#externalBtn').addEventListener('click', () => {
       if (mediaUrl || resolvedUrl) window.open(mediaUrl || resolvedUrl, '_blank');
       else showLoading('直链尚未解析完成');
+    });
+    $('#shareBtn').addEventListener('click', async () => {
+      // 「播放页 + 直链」自包含分享（恢复 v1.3.30）：带当前集最终直链 + 可选全部集地址（足够短才带，对方可切集）
+      // 不用 blob（跨设备失效）、不带超长剧集 JSON（防平台/服务器截断）
+      let urlToCopy = '';
+      try {
+        const u = String(mediaUrl || resolvedUrl || '').replace(/^blob:/, '');
+        if (!/^https?:\/\//i.test(u)) { showLoading('直链尚未解析完成'); setTimeout(hideLoading, 1200); return; }
+        const parts = ['v=' + CONFIG.version, 'st=' + curStream, 'ep=' + curEp];
+        const t = (isFinite(video.duration) && video.duration > 0) ? Math.floor(video.currentTime) : 0;
+        if (t > 0) parts.push('t=' + t);
+        parts.push('u=' + encodeURIComponent(u));
+        parts.push('n=' + encodeURIComponent(item.title || ''));
+        if (item.source) parts.push('src=' + encodeURIComponent(item.source));
+        // 可选：全部集地址（足够短才带，对方可切集）
+        try {
+          const all = JSON.stringify(streams.map((s) => ({ name: s.name || '', episodes: (s.episodes || []).map((e) => e.url) })));
+          const ae = encodeURIComponent(all);
+          if (ae.length <= 6000) parts.push('a=' + ae);
+        } catch (e) { /* ignore */ }
+        urlToCopy = location.origin + location.pathname + '#' + parts.join('&');
+      } catch (e) { /* ignore */ }
+      if (!urlToCopy) {
+        showLoading('当前直链不可用，无法生成分享链接');
+        setTimeout(hideLoading, 1800);
+        return;
+      }
+      const done = () => {
+        $('#shareBtn').textContent = '已复制 ✓';
+        setTimeout(() => { $('#shareBtn').textContent = '分享播放页'; }, 1600);
+      };
+      const legacyCopy = () => {
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = urlToCopy;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          ta.remove();
+        } catch (e) { /* ignore */ }
+      };
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await Promise.race([
+            navigator.clipboard.writeText(urlToCopy),
+            new Promise((r) => setTimeout(() => r('timeout'), 800)),
+          ]);
+        } else {
+          legacyCopy();
+        }
+        done();
+      } catch (e) {
+        legacyCopy();
+        done();
+      }
     });
     $('#copyBtn').addEventListener('click', async () => {
       const urlToCopy = mediaUrl || resolvedUrl;
@@ -799,6 +896,7 @@
     loadAutoNext();
     readParams();
     item = loadItem();
+    if (!item) item = loadItemFromHash(); // 分享链接自包含兜底（恢复 v1.3.30：本地缓存优先）
     if (!item) {
       $('#vTitle').textContent = '没有可播放的条目';
       $('#directBox').textContent = '请从首页选择一部影片进入播放页';
