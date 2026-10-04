@@ -107,7 +107,7 @@
   }
 
   /* ---------- 渲染：分类 chips / 源下拉 ---------- */
-  const COMMON_CATS = ['电影','电视剧','动漫','综艺','短剧','漫剧','纪录片','动作片','喜剧片','悬疑片','爱情片','科幻片','恐怖片','古装剧'];
+  const COMMON_CATS = ['电影','电视剧','动漫','综艺','短剧','漫剧','直播','纪录片','动作片','喜剧片','悬疑片','爱情片','科幻片','恐怖片','古装剧'];
 
   function renderCatChips() {
     const box = $('#catChips');
@@ -118,7 +118,7 @@
       (it.tags || []).forEach((t) => { if (t && !/^\d{4}$/.test(t)) set[t] = 1; });
     });
     const dynamicCats = Object.keys(set).slice(0, 12);
-    const opts = ['全部'].concat(COMMON_CATS.slice(0, 6)).concat(dynamicCats).slice(0, 18);
+    const opts = ['全部'].concat(COMMON_CATS.slice(0, 7)).concat(dynamicCats).slice(0, 19);
     box.innerHTML = opts.map((c) =>
       '<span class="chip' + ((state.query === c || (c === '全部' && !state.query)) ? ' active' : '') + '" data-cat="' + c + '">' + c + '</span>'
     ).join('');
@@ -1071,8 +1071,12 @@
       const btn = $('#loadCustomConfigBtn');
       btn.disabled = true; btn.textContent = '加载中…';
       try {
-        const n = await window.__LUNA_RELOAD__(url);
-        showToast('已更新：注册 ' + n + ' 个采集站');
+        const res = await window.__LUNA_RELOAD__(url);
+        if (res && res.kind === 'm3u') {
+          showToast('已更新：注册 ' + res.count + ' 个直播源（默认不启用）');
+        } else {
+          showToast('已更新：注册 ' + res + ' 个采集站');
+        }
         renderSourceModal();
         renderChips();
       } catch (e) {

@@ -10,11 +10,17 @@
   const videoLoading = $('#videoLoading');
   const videoLoadingText = $('#videoLoadingText');
 
-  /* 播放页标题（tab）：片名 + 集数 + 线路名，不用站名 */
+  /* 是否直播流（m3u 直链清单源条目：categories 含「直播」） */
+  function isLive() {
+    return !!(item && Array.isArray(item.categories) && item.categories.indexOf('直播') >= 0);
+  }
+
+  /* 播放页标题（tab）：片名 + 集数 + 线路名，不用站名；直播流显示「直播」 */
   function updateTitle() {
     const eps = (streams[curStream] && streams[curStream].episodes) || [];
     let t = item && item.title ? '《' + item.title + '》' : '正在播放';
-    if (eps.length > 1) t += ' 第 ' + (curEp + 1) + ' 集';
+    if (isLive()) t += ' · 直播';
+    else if (eps.length > 1) t += ' 第 ' + (curEp + 1) + ' 集';
     if (streams[curStream] && streams[curStream].name) t += ' · ' + streams[curStream].name;
     document.title = t;
   }
@@ -204,6 +210,22 @@
     if (curEp >= 0 && curEp < eps.length) {
       resolvedUrl = eps[curEp].url;
       $('#directBox').textContent = resolvedUrl;
+    }
+    // 直播/直链源（m3u 清单条目）：经中转展开探测重定向链，核实链路并显示解析状态。
+    // 注：这类源多为「302 入口 → 无 CORS CDN」，浏览器无法读取最终响应头，
+    // 直链框显示的是 302 入口地址（外部播放器 / TVBox 会自动跟随最新跳转，域名变动无需关心）
+    if (isLive() && /^https?:\/\//i.test(resolvedUrl)) {
+      const relayUrl = 'https://pz.v88.qzz.io/?url=' + encodeURIComponent(resolvedUrl);
+      fetchWithTimeout(relayUrl, CONFIG.requestTimeout).then((r) => r.text()).then((txt) => {
+        const segs = (txt.match(/^#EXTINF/gm) || []).length;
+        if (segs > 0) {
+          $('#adfNote').textContent = '✓ 已展开：播放列表 ' + segs + ' 段可解析。该源为 302 入口，上方地址为入口直链，外部播放器（TVBox/VLC）打开即自动跟随最新跳转，无需关心 CDN 域名变动';
+        } else {
+          $('#adfNote').textContent = '已连通但未识别到播放列表段（可能需重试）';
+        }
+      }).catch(() => {
+        $('#adfNote').textContent = '展开探测失败（源站不可达或超时），可点「重试」或「外部播放器」';
+      });
     }
     nextWarm = null;
     warmToken++;
@@ -547,7 +569,11 @@
       });
       hls.on(Hls.Events.ERROR, (e, data) => {
         if (data && data.fatal) {
-          showLoading('播放出错：' + (data.details || '未知错误'));
+          // 直播/直链源（m3u 清单）多为无 CORS 的第三方直链：浏览器跨域拉流会被拦截，
+          // 提示用外部播放器（TVBox / VLC / PotPlayer 等原生播放器无此限制）
+          const hint = isLive() ? '（该直播源为无 CORS 直链，浏览器无法直连；可点「外部播放器」用 TVBox/VLC 播放）' : '';
+          showLoading('播放出错：' + (data.details || '未知错误') + hint);
+          setTimeout(hideLoading, 4000);
         }
       });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
@@ -607,6 +633,17 @@
     function upd() {
       const d = video.duration;
       const t = video.currentTime;
+      if (isLive()) {
+        // 直播流：无进度可拖，显示已播时长 + LIVE 标记
+        showProg();
+        progBar.disabled = true;
+        progBar.max = 1000;
+        progBar.value = 0;
+        progCur.textContent = fmtClock(t);
+        progDur.textContent = '直播';
+        return;
+      }
+      progBar.disabled = false;
       if (!isFinite(d) || d <= 0) return;
       showProg(); // 有时长即显示（HLS 下 loadedmetadata 可能不触发，兜底）
       progBar.max = 1000;

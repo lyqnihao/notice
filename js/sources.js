@@ -295,6 +295,156 @@ let _lunaCfg = null, _lunaCfgAt = 0, _lunaCfgUrl = null, _lunaPool = null, _luna
 
 function lunaRelay(url) { return LUNATV_RELAY + encodeURIComponent(url); }
 
+/* ==================== m3u / m3u8 直链清单源（IPTV 直播 / 展平直链） ==================== */
+const M3U_URL_KEY = 'tideflow_m3u_urls_v1';
+const M3U_CACHE_MS = 2 * 3600 * 1000;
+const _m3uCache = {}; // url -> { at, items }
+
+function m3uHash(url) {
+  let h = 0;
+  for (let i = 0; i < url.length; i++) h = ((h << 5) - h + url.charCodeAt(i)) | 0;
+  return 'm3u:' + Math.abs(h).toString(36);
+}
+
+/* 解析 #EXTM3U 播放列表：每行 #EXTINF（tvg-name/tvg-logo/group-title）+ 下一行 URL */
+function parseM3u(text, meta) {
+  const lines = String(text || '').split(/\r?\n/);
+  const items = [];
+  let cur = null;
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (line.indexOf('#EXTINF') === 0) {
+      cur = { attrs: {} };
+      const gm = line.match(/tvg-name="([^"]*)"/);
+      const gl = line.match(/tvg-logo="([^"]*)"/);
+      const gg = line.match(/group-title="([^"]*)"/);
+      cur.attrs.name = gm ? gm[1] : '';
+      cur.attrs.logo = gl ? gl[1] : '';
+      cur.attrs.group = gg ? gg[1] : '';
+      const ci = line.lastIndexOf(',');
+      cur.attrs.tail = ci >= 0 ? line.slice(ci + 1).trim() : '';
+    } else if (line[0] !== '#' && cur) {
+      if (/^https?:\/\//i.test(line)) {
+        // 统一升级 https：本站为 https 部署，http 直链会被浏览器混合内容策略拦截
+        const url = line.replace(/^http:\/\//i, 'https://');
+        const title = cur.attrs.name || cur.attrs.tail || url.split('/').pop() || '直播';
+        const group = cur.attrs.group || '直播';
+        const kseed = (cur.attrs.name || cur.attrs.tail || url) + '|' + url;
+        let hh = 0;
+        for (let i = 0; i < kseed.length; i++) hh = ((hh << 5) - hh + kseed.charCodeAt(i)) | 0;
+        const key = meta.prefix + ':' + Math.abs(hh).toString(36);
+        items.push({
+          key, id: url,
+          title, desc: group + ' · 直链直播源',
+          thumb: cur.attrs.logo || '',
+          direct: url, needResolve: false,
+          source: meta.name, sourceId: meta.prefix,
+          tags: ['直播', group].filter(Boolean),
+          actors: [], studio: '', series: title, date: '', duration: 0,
+          episodes: [{ label: '直播', url }],
+          mime: 'video/mp4',
+          categories: ['直播', group].filter(Boolean),
+        });
+      }
+      cur = null;
+    }
+  }
+  return items;
+}
+
+/* 清单拉取：优先直连（多数 CDN 可达），失败走中转兜底（国内网络屏蔽域名） */
+async function m3uFetchText(url) {
+  try {
+    const r = await fetchWithTimeout(url, 8000);
+    if (r.ok) return await r.text();
+  } catch (e) { /* 直连失败走中转 */ }
+  const r2 = await fetchWithTimeout(lunaRelay(url), CONFIG.requestTimeout);
+  if (!r2.ok) throw new Error('HTTP ' + r2.status);
+  return await r2.text();
+}
+
+/* m3u 源适配器：整单本地过滤 + 分页（无后端搜索，清单过大靠分类/分页限制） */
+function m3uAdapter(url, meta) {
+  async function loadAll() {
+    const cached = _m3uCache[url];
+    if (cached && (Date.now() - cached.at) < M3U_CACHE_MS) return cached.items;
+    const text = await m3uFetchText(url);
+    const items = parseM3u(text, { prefix: meta.id, name: meta.name });
+    _m3uCache[url] = { at: Date.now(), items };
+    return items;
+  }
+  return {
+    type: 'm3u',
+    async fetch(ctx) {
+      const page = ctx.page || 1;
+      const all = await loadAll();
+      const q = (ctx.query || '').trim().toLowerCase();
+      const cat = (ctx.category || '');
+      let list = all;
+      if (q) list = list.filter((it) => (it.title + ' ' + (it.tags || []).join(' ')).toLowerCase().includes(q));
+      if (cat && cat !== '全部') list = list.filter((it) => (it.categories || []).includes(cat));
+      this._total = list.length;
+      this._nextPage = 0;
+      const size = 15;
+      return list.slice((page - 1) * size, page * size);
+    },
+    async test() {
+      const t0 = performance.now();
+      try {
+        const all = await loadAll();
+        let directOk = false;
+        if (all[0] && all[0].direct) directOk = await probeMediaUrl(all[0].direct, 5000);
+        return { ok: all.length > 0, latencyMs: Math.round(performance.now() - t0), count: all.length, directOk,
+          note: all.length ? '清单 ' + fmtNum(all.length) + ' 条 · 直链' + (directOk ? '可播' : '不通') : '清单为空' };
+      } catch (e) {
+        return { ok: false, latencyMs: -1, count: 0, directOk: false, note: '清单拉取失败' };
+      }
+    },
+  };
+}
+
+function registerM3uSource(url, meta) {
+  const id = m3uHash(url);
+  if (!ADAPTERS[id]) {
+    const name = meta && meta.name ? meta.name : 'm3u ' + url.replace(/^https?:\/\//, '').split('/')[0];
+    SOURCES.push({ id, name: '直播 · ' + name, type: 'm3u', desc: 'm3u/m3u8 直链清单 · ' + url.replace(/^https?:\/\//, ''), candidate: true });
+    ADAPTERS[id] = m3uAdapter(url, { id, name });
+  }
+  return id;
+}
+
+function loadStoredM3uUrls() {
+  try { return JSON.parse(localStorage.getItem(M3U_URL_KEY) || '[]'); } catch (e) { return []; }
+}
+function saveM3uUrls(list) {
+  try { localStorage.setItem(M3U_URL_KEY, JSON.stringify(list)); } catch (e) { /* ignore */ }
+}
+
+/* 自定义 m3u 订阅 URL 加入源池（持久化，刷新后保留，默认不启用） */
+window.__M3U_ADD__ = async function (url, preText) {
+  const list = loadStoredM3uUrls();
+  if (!list.includes(url)) { list.push(url); saveM3uUrls(list); }
+  let text = preText || '';
+  if (!text) text = await m3uFetchText(url);
+  let listName = '';
+  const m = text.match(/#EXTM3U[^\n]*name="([^"]*)"/);
+  if (m) listName = m[1];
+  registerM3uSource(url, { name: listName || url.replace(/^https?:\/\//, '').split('/')[0] });
+  return { kind: 'm3u', count: list.length };
+};
+
+/* 启动时恢复本地保存的自定义 m3u 订阅 */
+window.__M3U_LOAD_ALL__ = async function () {
+  const list = loadStoredM3uUrls();
+  for (const url of list) {
+    try {
+      const text = await m3uFetchText(url);
+      await window.__M3U_ADD__(url, text);
+    } catch (e) { /* 失效源跳过 */ }
+  }
+};
+
 function lunaActiveConfigUrl() {
   return localStorage.getItem(LUNATV_URL_KEY) || LUNATV_CONFIG_URL;
 }
@@ -540,10 +690,20 @@ window.__LUNA_READY__ = (async () => {
     const fast = await lunaPickPool();
     window.__LUNA_FAST__ = fast.map((s) => 'luna:' + s.key);
   } catch (e) { /* 配置拉取失败：源池保持空 */ }
+  // 恢复本地保存的自定义 m3u 直播订阅（默认不启用）
+  try { await window.__M3U_LOAD_ALL__(); } catch (e) { /* ignore */ }
 })();
 
 /* 用自定义 URL 重新拉取配置并重新注册全部子站 */
 window.__LUNA_RELOAD__ = async function (customUrl) {
+  // 先探测内容格式：m3u 直链清单 vs JSON 采集站订阅（m3u 用中转兜底拉取）
+  let probe = '';
+  try { probe = await m3uFetchText(customUrl); } catch (e) { /* 下面按 JSON 再试 */ }
+  if (probe && probe.trim().indexOf('#EXTM3U') === 0) {
+    const res = await window.__M3U_ADD__(customUrl, probe);
+    if (window.__LUNA_RELOADED__) { try { window.__LUNA_RELOADED__(); } catch (e) { /* ignore */ } }
+    return res;
+  }
   if (customUrl) localStorage.setItem(LUNATV_URL_KEY, customUrl);
   _lunaCfg = null; _lunaCfgAt = 0; _lunaCfgUrl = null;
   _lunaPool = null; _lunaPoolAt = 0;
@@ -782,5 +942,8 @@ const SOURCES = [
   { id: 'nasa', name: 'NASA 影像库', type: 'api', desc: '美国宇航局官方视频库 · 太空 / 地球 / 科学影像，元数据最全', candidate: false },
   /* LunaTV 全部子站在运行时由 __LUNA_READY__ 动态注册（独立可开关） */
 ];
+
+/* 预置合规 m3u 直播/短剧直链清单源（默认不启用，体检后按需勾选） */
+registerM3uSource('https://jinguoduanju.lyqnihao.dpdns.org/live.m3u', { name: '金果短剧' });
 
 const DEFAULT_ENABLED = ['nasa'];

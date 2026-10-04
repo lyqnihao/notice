@@ -1,10 +1,9 @@
 # 部署信息
 
 - 应用名：潮汐TIDEFLOW
-- app_id：`app_17eckqrc16z`
-- 线上地址（固定，复发不变）：https://4m2y5f3566jsm.aiforce.cloud/app/app_17eckqrc16z
-- 镜像站 app_id：`app_17egtdkh958`（备用地址，内容与主站同步）
-- 镜像站地址：https://4m2y5f3566jsm.aiforce.cloud/app/app_17egtdkh958
+- app_id：`app_17fdc0w9656`
+- 线上地址（固定，复发不变）：https://4m2y5f3566jsm.doubaoapps.com/app/app_17fdc0w9656
+- 历史 app_id（已被平台屏蔽，勿用）：`app_17emxrs6hpw`、`app_17eckqrc16z`、`app_17egtdkh958`
 
 ## 兼容 Cloudflare / GitHub Pages（纯静态站）
 
@@ -27,9 +26,9 @@
 
 ```bash
 cd /home/user/Doubao/chats/38442521609353474
-lark-cli apps +deploy --dir ./tideflow --app-id app_17eckqrc16z
+lark-cli apps +deploy --dir ./tideflow --app-id app_17fdc0w9656
 # 拿到 release_id 后轮询：
-lark-cli apps +release-get --app-id app_17eckqrc16z --release-id <release_id>
+lark-cli apps +release-get --app-id app_17fdc0w9656 --release-id <release_id>
 # 直到 status=finished，online_url 不变
 ```
 
