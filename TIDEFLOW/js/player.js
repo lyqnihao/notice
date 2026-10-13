@@ -14,12 +14,16 @@
   function isLive() {
     return !!(item && Array.isArray(item.categories) && item.categories.indexOf('直播') >= 0);
   }
+  /* 当前是否真·直播：VOD 直链清单有确定时长（走正常进度条），只有时长不可知的流才按直播处理 */
+  function isLiveStreaming() {
+    return isLive() && isFinite(video.duration) && !(video.duration > 0);
+  }
 
-  /* 播放页标题（tab）：片名 + 集数 + 线路名，不用站名；直播流显示「直播」 */
+  /* 播放页标题（tab）：片名 + 集数 + 线路名，不用站名；真直播流才显示「直播」 */
   function updateTitle() {
     const eps = (streams[curStream] && streams[curStream].episodes) || [];
     let t = item && item.title ? '《' + item.title + '》' : '正在播放';
-    if (isLive()) t += ' · 直播';
+    if (isLiveStreaming()) t += ' · 直播';
     else if (eps.length > 1) t += ' 第 ' + (curEp + 1) + ' 集';
     if (streams[curStream] && streams[curStream].name) t += ' · ' + streams[curStream].name;
     document.title = t;
@@ -633,8 +637,9 @@
     function upd() {
       const d = video.duration;
       const t = video.currentTime;
-      if (isLive()) {
-        // 直播流：无进度可拖，显示已播时长 + LIVE 标记
+      // 真·直播流（时长不可知）：进度条 LIVE 模式，不可拖动，显示已播时长；
+      // VOD 直链清单（如短剧单集）有确定时长，走正常进度条（可拖动、显示总时长）
+      if (!isFinite(d) || !(d > 0)) {
         showProg();
         progBar.disabled = true;
         progBar.max = 1000;
@@ -644,7 +649,6 @@
         return;
       }
       progBar.disabled = false;
-      if (!isFinite(d) || d <= 0) return;
       showProg(); // 有时长即显示（HLS 下 loadedmetadata 可能不触发，兜底）
       progBar.max = 1000;
       if (!progDragging) progBar.value = Math.round(t / d * 1000); // 拖动中不覆盖用户位置
@@ -656,7 +660,7 @@
       seekResume();
       showProg();
     });
-    video.addEventListener('durationchange', showProg);
+    video.addEventListener('durationchange', () => { showProg(); updateTitle(); });
     video.addEventListener('canplay', showProg);
     video.addEventListener('error', () => {
       if (!videoLoading.style.display || videoLoading.style.display === 'none') {

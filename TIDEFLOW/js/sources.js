@@ -339,7 +339,7 @@ function parseM3u(text, meta) {
           title, desc: group + ' · 直链直播源',
           thumb: cur.attrs.logo || '',
           direct: url, needResolve: false,
-          source: meta.name, sourceId: meta.prefix,
+          source: meta.name, sourceId: meta.prefix, nsfw: !!meta.nsfw,
           tags: ['直播', group].filter(Boolean),
           actors: [], studio: '', series: title, date: '', duration: 0,
           episodes: [{ label: '直播', url }],
@@ -408,8 +408,8 @@ function registerM3uSource(url, meta) {
   const id = m3uHash(url);
   if (!ADAPTERS[id]) {
     const name = meta && meta.name ? meta.name : 'm3u ' + url.replace(/^https?:\/\//, '').split('/')[0];
-    SOURCES.push({ id, name: '直播 · ' + name, type: 'm3u', desc: 'm3u/m3u8 直链清单 · ' + url.replace(/^https?:\/\//, ''), candidate: true });
-    ADAPTERS[id] = m3uAdapter(url, { id, name });
+    SOURCES.push({ id, name: '直播 · ' + name, type: 'm3u', desc: 'm3u/m3u8 直链清单 · ' + url.replace(/^https?:\/\//, ''), candidate: true, nsfw: !!(meta && meta.nsfw) });
+    ADAPTERS[id] = m3uAdapter(url, { id, name, nsfw: !!(meta && meta.nsfw) });
   }
   return id;
 }
@@ -944,6 +944,6 @@ const SOURCES = [
 ];
 
 /* 预置合规 m3u 直播/短剧直链清单源（默认不启用，体检后按需勾选） */
-registerM3uSource('https://jinguoduanju.lyqnihao.dpdns.org/live.m3u', { name: '金果短剧' });
+registerM3uSource('https://jinguoduanju.lyqnihao.dpdns.org/live.m3u', { name: '金果短剧', nsfw: true });
 
 const DEFAULT_ENABLED = ['nasa'];

@@ -142,7 +142,7 @@
       lunaDef = SOURCES.find((s) => state.enabled.includes(s.id) && s.id.indexOf('luna:') === 0);
     }
     // 过滤开启时：敏感源不参与分类树（其分类标签也不应出现）
-    if (lunaDef && state.filterOn && FILTER_SOURCE_HINT.test(lunaDef.name)) lunaDef = null;
+    if (lunaDef && state.filterOn && isNsfwSource(lunaDef)) lunaDef = null;
     if (!lunaDef) { box.innerHTML = ''; return; }
     try {
       const ad = ADAPTERS[lunaDef.id];
@@ -209,8 +209,8 @@
 
   function renderChips() {
     const box = $('#chips');
-    // 分类标签跟随当前启用的源：全部 + 各启用源
-    const defs = activeSourceDefs().filter((d) => !(state.filterOn && FILTER_SOURCE_HINT.test(d.name)));
+    // 分类标签跟随当前启用的源：全部 + 各启用源（过滤开启时排除敏感源）
+    const defs = activeSourceDefs().filter((d) => !(state.filterOn && isNsfwSource(d)));
     const opts = [{ id: '', name: '全部' }].concat(defs.map((d) => ({ id: d.id, name: d.name })));
     box.innerHTML = opts.map((o) =>
       '<span class="chip' + (state.sourceOnly === o.id ? ' active' : '') + '" data-src="' + o.id + '">' + esc(o.name) + '</span>'
@@ -269,17 +269,17 @@
       updateStatus(null, true);
     }
 
-    // 聚合源列表：过滤开关开启时排除敏感源（节约资源、避免敏感源超时噪音）；
+    // 过滤开关开启时排除敏感源（节约资源、避免敏感源超时噪音）；
     // 聚焦源若被过滤（敏感源被隐藏）则自动解除聚焦
     if (state.filterOn && state.sourceOnly) {
       const soDef = SOURCES.find((s) => s.id === state.sourceOnly);
-      if (soDef && FILTER_SOURCE_HINT.test(soDef.name)) {
+      if (soDef && isNsfwSource(soDef)) {
         state.sourceOnly = '';
         renderChips();
       }
     }
     const defs = activeSourceDefs()
-      .filter((d) => !(state.filterOn && FILTER_SOURCE_HINT.test(d.name)))
+      .filter((d) => !(state.filterOn && isNsfwSource(d)))
       .filter((d) => !state.sourceOnly || d.id === state.sourceOnly);
     const all = [];
     const fails = [];
@@ -822,13 +822,15 @@
   function renderSourceModal() {
     const body = $('#sourceBody');
     const statsBox = $('#srcStatsFixed');
-    const pool = SOURCES.filter((s) => !s.candidate);
-    const candidates = SOURCES.filter((s) => s.candidate);
+    // 过滤开关开启时：敏感源选项整体隐藏（列表与统计都不出现）
+    const vis = SOURCES.filter((s) => !(state.filterOn && isNsfwSource(s)));
+    const pool = vis.filter((s) => !s.candidate);
+    const candidates = vis.filter((s) => s.candidate);
 
     // 统计：总数 / 已启用 / 体检有效 / 失效 / 未体检（固定在头部，不随列表滚动）
-    const enabledCount = state.enabled.filter((id) => SOURCES.some((s) => s.id === id)).length;
+    const enabledCount = state.enabled.filter((id) => vis.some((s) => s.id === id)).length;
     let okCount = 0, deadCount = 0, untestedCount = 0;
-    SOURCES.forEach((s) => {
+    vis.forEach((s) => {
       const sc = state.scanResults[s.id];
       if (sc && sc.ok) okCount++;
       else if (sc && !sc.ok) deadCount++;
@@ -838,7 +840,7 @@
     const aliveCandidates = candidates.filter((s) => !dead.includes(s));
 
     if (statsBox) {
-      statsBox.innerHTML = '<div class="sec-title">当前源池 <span class="hint">共 ' + SOURCES.length + ' 条 · 已启用 ' + enabledCount + '/' + CONFIG.maxActive +
+      statsBox.innerHTML = '<div class="sec-title">当前源池 <span class="hint">共 ' + vis.length + ' 条 · 已启用 ' + enabledCount + '/' + CONFIG.maxActive +
         ' · 有效 ' + okCount + ' · 失效 ' + deadCount + ' · 未体检 ' + untestedCount + '</span></div>';
     }
 

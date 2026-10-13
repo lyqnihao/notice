@@ -5,7 +5,7 @@
 const CONFIG = {
   name: '潮汐 TIDEFLOW',
   slogan: '全网免费视频聚合 · 直链播放 · 零广告',
-  version: '1.3.36',
+  version: '1.3.37',
   maxActive: 5,                // 同时启用的源上限（高速通道）
   storeKey: 'tideflow_sources_v1',
   filterKey: 'tideflow_filter_v1',
@@ -29,6 +29,11 @@ const FILTER_KEYWORDS = [
 ].map((k) => k.toLowerCase());
 
 const FILTER_SOURCE_HINT = /[🔞😈]|91md|麻豆|成人|情色|果冻|果豆|蜜桃|淫|av|xing|sex/i;
+
+/* 是否为敏感源（安全模式过滤对象）：源定义显式标记 nsfw 或源名命中关键词提示 */
+function isNsfwSource(def) {
+  return !!(def && (def.nsfw || (def.name && FILTER_SOURCE_HINT.test(def.name))));
+}
 
 /* ---------- 推广 / 广告条目过滤（数据层） ---------- */
 const PROMO_KEYWORDS = [
@@ -63,6 +68,7 @@ function escapeReg(s) {
 
 /* 是否命中敏感内容：源名 / 标题 / 标签 / 描述 任一命中即过滤 */
 function isFilteredContent(item) {
+  if (item && item.nsfw) return true; // 源显式标记的敏感条目（安全模式直接过滤）
   if (item.sourceId && FILTER_SOURCE_HINT.test(item.sourceId)) return true;
   if (item.source && FILTER_SOURCE_HINT.test(item.source)) return true;
   const hay = [item.title, item.desc, (item.tags || []).join(' '), (item.categories || []).join(' ')]
