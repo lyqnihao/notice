@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sun Nav 导航</title>
+<link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="5" fill="%2327c3a2"/><rect x="6" y="6" width="5" height="5" rx="1.5" fill="white"/><rect x="13" y="6" width="5" height="5" rx="1.5" fill="white" opacity=".6"/><rect x="6" y="13" width="5" height="5" rx="1.5" fill="white" opacity=".6"/><rect x="13" y="13" width="5" height="5" rx="1.5" fill="white"/></svg>'>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <button id="sidebarToggle" class="icon-btn" title="折叠/展开分类树" aria-label="切换分类树">
+        <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+      <div class="search-wrap">
+        <div class="search-row">
+          <input id="searchInput" type="search" autocomplete="off"
+                 placeholder="站内检索，回车用搜索引擎搜索">
+          <button id="searchBtn" class="btn primary" title="回车搜索">搜索</button>
+        </div>
+        <div class="engine-row" id="engineRow"></div>
+        <button id="engineToggle" class="btn ghost small engine-toggle" title="展开搜索引擎选项">引擎</button>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button id="themeToggle" class="btn ghost" title="切换深色/浅色主题">
+        <svg id="iconMoon" viewBox="0 0 24 24" class="theme-ic"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        <svg id="iconSun" viewBox="0 0 24 24" class="theme-ic" style="display:none"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg>
+      </button>
+      <button id="addGroupBtn" class="btn ghost">+ 分类</button>
+      <button id="importBtn" class="btn ghost">导入</button>
+      <button id="exportBtn" class="btn ghost">导出</button>
+      <button id="resetBtn" class="btn ghost" title="重置为默认数据">重置</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-scroll" id="groupTree"></div>
+      <div class="sidebar-foot">
+        <button id="sidebarCollapse" class="btn ghost small">收起分类树</button>
+        <span id="statCount"></span>
+      </div>
+    </aside>
+
+    <main class="content" id="content">
+      <div class="group-head" id="groupHead"></div>
+      <div class="card-grid" id="cardGrid"></div>
+      <div class="empty-tip" id="emptyTip" style="display:none">没有匹配的站点，回车可用搜索引擎全网搜索。</div>
+    </main>
+  </div>
+
+</div>
+
+<!-- 右键菜单 -->
+<div id="ctxMenu" class="ctx-menu hidden" role="menu"></div>
+
+<!-- 弹窗 -->
+<div id="modal" class="modal hidden">
+  <div class="modal-box" role="dialog" aria-modal="true">
+    <h3 id="modalTitle"></h3>
+    <form id="modalForm" class="modal-form">
+      <div class="field"><label>名称</label><input id="fTitle" type="text" required maxlength="60"></div>
+      <div class="field"><label>外网链接</label><input id="fUrl" type="url" placeholder="https://..."></div>
+      <div class="field"><label>内网链接（可选）</label><input id="fLan" type="text" placeholder="http://192.168.x.x:端口 或留空"></div>
+      <div class="field"><label>介绍</label><input id="fDesc" type="text" maxlength="120"></div>
+      <div class="field"><label>Logo 地址（可选，留空自动获取）</label><input id="fLogo" type="url" placeholder="https://.../favicon.ico"></div>
+      <div class="modal-actions">
+        <button type="button" id="modalCancel" class="btn ghost">取消</button>
+        <button type="submit" id="modalOk" class="btn primary">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 导入弹窗 -->
+<div id="importModal" class="modal hidden">
+  <div class="modal-box">
+    <h3>导入配置</h3>
+    <p class="muted">支持本应用/Sun-Panel 的 JSON，以及 Chrome/Edge/Firefox 导出的 HTML 书签文件（自动识别）。请选择导入模式：</p>
+    <input id="importFile" type="file">
+    <div class="import-modes">
+      <label><input type="radio" name="importMode" value="replace" checked><span>覆盖</span>（清空现有，整体替换为备份内容）</label>
+      <label><input type="radio" name="importMode" value="merge"><span>合并去重</span>（并入现有，同名同链接自动去重）</label>
+      <label><input type="radio" name="importMode" value="append"><span>仅追加</span>（备份作为新分类整体加入，不去重）</label>
+    </div>
+    <div class="modal-actions">
+      <button id="importPaste" class="btn ghost">从剪贴板导入</button>
+      <button type="button" id="importCancel" class="btn ghost">取消</button>
+      <button id="importOk" class="btn primary">导入</button>
+    </div>
+  </div>
+</div>
+
+<!-- 导出弹窗 -->
+<div id="exportModal" class="modal hidden">
+  <div class="modal-box">
+    <h3>导出</h3>
+    <p class="muted">选择导出格式：</p>
+    <div class="export-actions">
+      <button id="expJson" class="btn primary">导出 Sun-Panel JSON</button>
+      <button id="expHtml" class="btn primary">导出 HTML 书签（浏览器可导入）</button>
+    </div>
+    <div class="modal-actions">
+      <button id="expClose" class="btn ghost">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- 引擎管理弹窗 -->
+<div id="engineModal" class="modal hidden">
+  <div class="modal-box">
+    <h3>搜索引擎管理</h3>
+    <p class="muted">勾选项可增删；搜索地址用 <code>{q}</code> 表示关键词占位。</p>
+    <div id="engineList" class="engine-list"></div>
+    <div class="engine-add">
+      <div class="field"><label>新增引擎名称</label><input id="enName" type="text" placeholder="例如：夸克"></div>
+      <div class="field"><label>搜索地址</label><input id="enUrl" type="text" placeholder="https://www.quark.cn/s?q={q}"></div>
+    </div>
+    <div class="modal-actions">
+      <button id="enAdd" class="btn primary">添加</button>
+      <button id="enReset" class="btn ghost">恢复默认</button>
+      <button id="enClose" class="btn ghost">完成</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
