@@ -1,0 +1,50 @@
+# Sun Nav 静态页 -> GitHub Pages 自动部署
+# 用法：把本文件放到仓库根目录的 .github/workflows/ 下
+#       （如果 sun-nav 只是仓库里的子目录，同样放到仓库根的 .github/ 即可）
+# 推送到 main 分支后自动打包 deploy-public/ 并部署到 Pages
+#
+# 版本历史：
+#   v1.0.0  2026-10-29  首版：推送 main 触发，上传 sun-nav/deploy-public 并部署到 GitHub Pages
+
+name: Deploy Sun Nav to GitHub Pages
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # 公开部署版：已剔除敏感分类，仅发布 deploy-public 目录内容
+          path: ./sun-nav/deploy-public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

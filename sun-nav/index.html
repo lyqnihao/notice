@@ -20,9 +20,9 @@
           <input id="searchInput" type="search" autocomplete="off"
                  placeholder="站内检索，回车用搜索引擎搜索">
           <button id="searchBtn" class="btn primary" title="回车搜索">搜索</button>
+          <button id="engineToggle" class="btn ghost engine-toggle" title="展开/收起搜索引擎选项">引擎</button>
         </div>
         <div class="engine-row" id="engineRow"></div>
-        <button id="engineToggle" class="btn ghost small engine-toggle" title="展开搜索引擎选项">引擎</button>
       </div>
     </div>
     <div class="topbar-right">
@@ -41,14 +41,20 @@
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-scroll" id="groupTree"></div>
       <div class="sidebar-foot">
-        <button id="sidebarCollapse" class="btn ghost small">收起分类树</button>
-        <span id="statCount"></span>
+        <div class="foot-row">
+          <button id="sidebarCollapse" class="btn ghost small">收起分类树</button>
+          <span id="statCount"></span>
+        </div>
+        <div class="foot-row version-row">
+          <span>当前版本</span>
+          <span id="appVersion" class="ver">-</span>
+        </div>
       </div>
     </aside>
 
     <main class="content" id="content">
       <div class="group-head" id="groupHead"></div>
-      <div class="card-grid" id="cardGrid"></div>
+      <div class="group-sections" id="cardGrid"></div>
       <div class="empty-tip" id="emptyTip" style="display:none">没有匹配的站点，回车可用搜索引擎全网搜索。</div>
     </main>
   </div>
@@ -64,6 +70,10 @@
     <h3 id="modalTitle"></h3>
     <form id="modalForm" class="modal-form">
       <div class="field"><label>名称</label><input id="fTitle" type="text" required maxlength="60"></div>
+      <div class="field" id="fGroupField">
+        <label>所属分组</label>
+        <select id="fGroup"></select>
+      </div>
       <div class="field"><label>外网链接</label><input id="fUrl" type="url" placeholder="https://..."></div>
       <div class="field"><label>内网链接（可选）</label><input id="fLan" type="text" placeholder="http://192.168.x.x:端口 或留空"></div>
       <div class="field"><label>介绍</label><input id="fDesc" type="text" maxlength="120"></div>

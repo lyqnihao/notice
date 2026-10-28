@@ -1,6 +1,11 @@
-/* ===== Sun Nav 导航页逻辑 v1.1.3 ===== */
+/* ===== Sun Nav 导航页逻辑 v1.1.5 ===== */
 (function () {
 'use strict';
+
+/* ---------- 版本号（侧栏底部展示，修改时同步 README / data.js 头部注释） ---------- */
+var APP_VERSION = 'v1.1.5';
+/* 重置后保留的固定功能分组名 */
+var TOOL_GROUP_TITLE = '功能工具';
 
 /* ---------- 搜索引擎 ---------- */
 var ENGINES = [
@@ -268,17 +273,7 @@ function renderContent() {
     grid.appendChild(secEl);
   });
 
-  // 单分类模式显示标题
-  if (state.activeGroup !== null && groups.length) {
-    var g = groups[0];
-    var pin = g.pinned ? '<span class="pin">固定</span>' : '';
-    head.appendChild(el('h2', null, escapeHtml(g.title) + pin));
-    var act = el('div', 'group-actions', '');
-    var addBtn = el('button', 'btn ghost small', '+ 添加站点');
-    addBtn.addEventListener('click', function () { openItemModal('add', state.activeGroup, -1); });
-    act.appendChild(addBtn);
-    head.appendChild(act);
-  }
+  // 分组标题统一由各 section 自带（.group-head），此处不再重复渲染，避免出现双标题
 
   if (!matched) empty.style.display = 'block';
   renderStat();
@@ -527,6 +522,20 @@ function removeGroup(gi) {
 /* ---------- 弹窗：站点 ---------- */
 var modalMode = 'add';
 var modalRef = { gi: -1, ii: -1 };
+
+/* 填充"所属分组"下拉列表，selGi 为当前选中分组索引 */
+function fillGroupSelect(selGi) {
+  var sel = $('fGroup');
+  sel.innerHTML = '';
+  state.groups.forEach(function (g, i) {
+    var op = document.createElement('option');
+    op.value = String(i);
+    op.textContent = (g && g.title) ? g.title : ('分组 ' + (i + 1));
+    if (i === selGi) op.selected = true;
+    sel.appendChild(op);
+  });
+}
+
 function openItemModal(mode, gi, ii) {
   modalMode = mode; modalRef = { gi: gi, ii: ii };
   $('modalTitle').textContent = mode === 'add' ? '添加站点' : '编辑标签';
@@ -540,6 +549,8 @@ function openItemModal(mode, gi, ii) {
     $('fDesc').value = it.desc || '';
     $('fLogo').value = it.logo || '';
   }
+  fillGroupSelect(gi);
+  $('fGroupField').classList.remove('hidden');
   $('modal').classList.remove('hidden');
   $('fTitle').focus();
 }
@@ -558,6 +569,7 @@ function openGroupModal(mode, gi) {
   $('modalTitle').textContent = mode === 'add' ? '添加分类' : '重命名分类';
   $('fTitle').value = mode === 'edit' ? (state.groups[gi].title || '') : '';
   $('fUrl').value = ''; $('fLan').value = ''; $('fDesc').value = ''; $('fLogo').value = '';
+  $('fGroupField').classList.add('hidden');   // 分类弹窗不显示分组选择
   $('modal').classList.remove('hidden');
   $('fTitle').focus();
 }
@@ -589,14 +601,25 @@ $('modalForm').onsubmit = function (e) {
     desc: $('fDesc').value.trim(),
     logo: $('fLogo').value.trim()
   };
+  // 目标分组（可在弹窗中切换到其它分组）
+  var targetGi = parseInt($('fGroup').value, 10);
+  if (isNaN(targetGi) || !state.groups[targetGi]) targetGi = modalRef.gi;
+  if (!state.groups[targetGi].items) state.groups[targetGi].items = [];
+
   if (modalMode === 'add') {
-    state.groups[modalRef.gi].items.push(data);
-    toast('已添加');
+    state.groups[targetGi].items.push(data);
+    toast(targetGi === modalRef.gi ? '已添加' : '已添加到「' + state.groups[targetGi].title + '」');
   } else {
     var it = state.groups[modalRef.gi].items[modalRef.ii];
     it.title = data.title; it.url = data.url; it.lanUrl = data.lanUrl;
     it.desc = data.desc; it.logo = data.logo;
-    toast('已保存');
+    if (targetGi !== modalRef.gi) {
+      state.groups[modalRef.gi].items.splice(modalRef.ii, 1);
+      state.groups[targetGi].items.push(it);
+      toast('已移动到「' + state.groups[targetGi].title + '」');
+    } else {
+      toast('已保存');
+    }
   }
   saveData(); renderTree(); renderContent();
   closeModal();
@@ -839,12 +862,44 @@ $('importPaste').addEventListener('click', function () {
     catch (er) { toast('导入失败：剪贴板内容不是有效配置：' + er.message); }
   }, function () { toast('读取剪贴板失败，请检查浏览器权限'); });
 });
+/* 重置数据：仅保留「功能工具」一个分组，其它分组与标签全部清空 */
+function buildResetData() {
+  var tool = null, i;
+  var def = deepClone(window.SUN_PANEL_DATA || []);
+  for (i = 0; i < def.length; i++) {
+    if (def[i] && def[i].title === TOOL_GROUP_TITLE) { tool = def[i]; break; }
+  }
+  if (!tool) {
+    for (i = 0; i < state.groups.length; i++) {
+      if (state.groups[i] && state.groups[i].title === TOOL_GROUP_TITLE) { tool = deepClone(state.groups[i]); break; }
+    }
+  }
+  if (!tool) tool = { title: TOOL_GROUP_TITLE, pinned: true, items: [] };
+  if (!tool.items) tool.items = [];
+  tool.pinned = true;
+
+  function hasWidget(w) {
+    for (var k = 0; k < tool.items.length; k++) if (tool.items[k].widget === w) return true;
+    return false;
+  }
+  if (!hasWidget('ipmonitor')) {
+    tool.items.unshift({ widget: 'ipmonitor', title: 'IP 与连通性测试', desc: '实时检测本机公网 IP 与主要站点连通性，自动刷新' });
+  }
+  if (!hasWidget('calclock')) {
+    var pos = 0;
+    for (var j = 0; j < tool.items.length; j++) if (tool.items[j].widget === 'ipmonitor') pos = j + 1;
+    tool.items.splice(pos, 0, { widget: 'calclock', title: '日历与时钟', desc: '当前日期与实时时间' });
+  }
+  return [tool];
+}
 $('resetBtn').addEventListener('click', function () {
-  if (!confirm('确定重置为默认站点数据？当前修改将被覆盖。')) return;
-  try { localStorage.removeItem(LS_DATA); } catch (e) {}
-  state.groups = deepClone(window.SUN_PANEL_DATA || []);
+  if (!confirm('确定重置？将只保留「' + TOOL_GROUP_TITLE + '」一个分组，其它所有分组和标签都会被清空。')) return;
+  state.groups = buildResetData();
+  state.activeGroup = null;
+  state.query = '';
+  $('searchInput').value = '';
   saveData(); renderTree(); renderContent();
-  toast('已重置为默认');
+  toast('已重置：仅保留「' + TOOL_GROUP_TITLE + '」');
 });
 
 /* ---------- 搜索与搜索引擎 ---------- */
@@ -879,14 +934,17 @@ $('searchInput').addEventListener('input', function () {
 
 /* ---------- 引擎收起：页面向下滚动时隐藏，点"引擎"重新展开 ---------- */
 var engineExpandAt = 0;
+function setEngineHidden(hidden) {
+  document.querySelector('.topbar').classList.toggle('engine-hidden', hidden);
+  $('engineToggle').classList.toggle('active', !hidden);
+}
 window.addEventListener('scroll', function () {
-  if (window.scrollY > 60 && Date.now() - engineExpandAt > 2000) {
-    document.querySelector('.topbar').classList.add('engine-hidden');
-  }
+  if (window.scrollY > 60 && Date.now() - engineExpandAt > 2000) setEngineHidden(true);
 }, { passive: true });
 $('engineToggle').addEventListener('click', function () {
-  engineExpandAt = Date.now();
-  document.querySelector('.topbar').classList.remove('engine-hidden');
+  var hidden = document.querySelector('.topbar').classList.contains('engine-hidden');
+  if (hidden) engineExpandAt = Date.now();
+  setEngineHidden(!hidden);
 });
 
 /* ---------- 侧栏折叠 / 主题 ---------- */
@@ -1102,7 +1160,9 @@ function init() {
     var es = JSON.parse(localStorage.getItem(LS_ENGINE) || '[]');
     if (Array.isArray(es)) es.forEach(function (id) { state.engines.add(id); });
   } catch (e) {}
+  $('appVersion').textContent = APP_VERSION;
   renderEngines();
+  setEngineHidden(window.innerWidth <= 760);   // 窄屏默认收起引擎选项，节省空间
   renderTree();
   renderContent();
 }
