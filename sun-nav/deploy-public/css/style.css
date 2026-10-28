@@ -1,4 +1,4 @@
-/* ===== Sun Nav 导航页样式 v1.1.5 ===== */
+/* ===== Sun Nav 导航页样式 v1.1.6 ===== */
 /* 深/浅主题变量 */
 :root{
   --accent:#27c3a2;
@@ -141,16 +141,18 @@ a{color:inherit;text-decoration:none}
 .group-section{margin-bottom:22px}
 .group-section .group-head{margin-bottom:10px}
 
-/* 卡片栅格：普通链接卡横向 2:1（左 Logo 右名称/简介），功能卡跨 2 列 × 2 行 */
+/* 卡片栅格：普通链接卡紧凑横向（左 Logo 右名称/简介），功能卡跨 2 列 × 4 行 */
 .card-grid{
   display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(238px,1fr));
-  gap:var(--gap);
+  grid-template-columns:repeat(auto-fill,minmax(178px,1fr));
+  gap:9px;
+  /* 行高基准：普通卡片高度，功能卡按倍数跨行 */
+  --card-h:56px;
 }
 
 .card{
-  display:flex;align-items:center;gap:12px;
-  padding:12px 13px;aspect-ratio:2/1;min-height:0;
+  display:flex;align-items:center;gap:9px;
+  padding:8px 10px;min-height:var(--card-h);
   background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
   cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .12s;
   position:relative;min-width:0;overflow:hidden;text-align:left;
@@ -160,24 +162,24 @@ a{color:inherit;text-decoration:none}
 .card.drag-over-top{box-shadow:0 -3px 0 0 var(--accent)}
 .card.drag-over-bottom{box-shadow:0 3px 0 0 var(--accent)}
 .card-logo{
-  width:46px;height:46px;flex-shrink:0;border-radius:11px;overflow:hidden;
+  width:38px;height:38px;flex-shrink:0;border-radius:9px;overflow:hidden;
   background:var(--logo-bg);display:flex;align-items:center;justify-content:center;
 }
-.card-logo img{width:62%;height:62%;object-fit:contain}
-.card-logo .fallback{font-size:19px;font-weight:700;color:var(--accent)}
+.card-logo img{width:64%;height:64%;object-fit:contain}
+.card-logo .fallback{font-size:16px;font-weight:700;color:var(--accent)}
 .card-body{min-width:0;flex:1}
-.card-body .name{font-size:14px;font-weight:600;line-height:1.3;
+.card-body .name{font-size:13px;font-weight:600;line-height:1.25;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-all}
-.card-body .desc{font-size:12px;color:var(--text-dim);margin-top:3px;line-height:1.35;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-all}
+.card-body .desc{font-size:10.5px;color:var(--text-dim);margin-top:2px;line-height:1.3;
+  display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;word-break:break-all;white-space:nowrap;text-overflow:ellipsis}
 .card .drag-grip{
   position:absolute;right:6px;bottom:6px;font-size:13px;color:var(--text-faint);opacity:0;cursor:grab;
 }
 .card:hover .drag-grip{opacity:.6}
 .card.widget-card{
   cursor:default;padding:0;overflow:hidden;display:block;text-align:left;
-  aspect-ratio:auto;
-  grid-column:span 2;grid-row:span 2;
+  min-height:0;
+  grid-column:span 2;grid-row:span 4;
   align-self:stretch;
 }
 .widget{width:100%;height:100%;display:flex}
@@ -296,10 +298,14 @@ code{background:var(--logo-bg);padding:1px 5px;border-radius:5px;font-size:12px}
   .search-row .btn{padding:0 10px}
 }
 
-/* 单列时功能卡改为整行，普通卡取消 2:1 锁定高度，避免内容被压缩 */
+/* 手机端：普通卡固定两列，功能卡整行自适应高度 */
 @media (max-width:540px){
-  .card{aspect-ratio:auto;min-height:80px;padding:11px 12px}
-  .card-logo{width:42px;height:42px}
+  .card-grid{grid-template-columns:repeat(2,1fr);gap:8px;--card-h:52px}
+  .card{padding:7px 8px;gap:7px}
+  .card-logo{width:34px;height:34px;border-radius:8px}
+  .card-logo .fallback{font-size:14px}
+  .card-body .name{font-size:12px}
+  .card-body .desc{font-size:10px}
   .card.widget-card{grid-column:1/-1;grid-row:auto;min-height:0}
-  .calclock .calendar .day{min-height:22px}
+  .calclock .calendar .day{min-height:20px}
 }

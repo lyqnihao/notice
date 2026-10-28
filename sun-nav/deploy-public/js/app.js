@@ -1,9 +1,9 @@
-/* ===== Sun Nav 导航页逻辑 v1.1.5 ===== */
+/* ===== Sun Nav 导航页逻辑 v1.1.6 ===== */
 (function () {
 'use strict';
 
 /* ---------- 版本号（侧栏底部展示，修改时同步 README / data.js 头部注释） ---------- */
-var APP_VERSION = 'v1.1.5';
+var APP_VERSION = 'v1.1.6';
 /* 重置后保留的固定功能分组名 */
 var TOOL_GROUP_TITLE = '功能工具';
 
