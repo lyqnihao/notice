@@ -1,9 +1,9 @@
-/* ===== Sun Nav 导航页逻辑 v1.1.6 ===== */
+/* ===== Sun Nav 导航页逻辑 v1.1.7 ===== */
 (function () {
 'use strict';
 
 /* ---------- 版本号（侧栏底部展示，修改时同步 README / data.js 头部注释） ---------- */
-var APP_VERSION = 'v1.1.6';
+var APP_VERSION = 'v1.1.7';
 /* 重置后保留的固定功能分组名 */
 var TOOL_GROUP_TITLE = '功能工具';
 
@@ -670,12 +670,15 @@ function normalizeImport(data) {
       title: (g.title || '').trim() || '未命名分类',
       pinned: !!g.pinned,
       items: (g.items || g.children || []).map(function (it) {
+        // 兼容 Sun-Panel v2：url/lanUrl/icon 被包进 cardData 内
+        var cd = it.cardData || {};
+        var ic = it.icon || cd.icon || {};
         return {
           title: (it.title || '').trim(),
-          url: (it.url || '').trim(),
-          lanUrl: (it.lanUrl || '').trim(),
-          desc: (it.desc || it.description || '').trim(),
-          logo: (it.logo || (it.icon && it.icon.src) || '').trim()
+          url: (cd.url || it.url || '').trim(),
+          lanUrl: (cd.lanUrl || it.lanUrl || '').trim(),
+          desc: (it.desc || it.description || cd.desc || '').trim(),
+          logo: (it.logo || ic.src || '').trim()
         };
       }).filter(function (it) { return it.title; })
     };
