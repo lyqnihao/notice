@@ -3,7 +3,7 @@
 'use strict';
 
 /* ---------- 版本号（侧栏底部展示，修改时同步 README / data.js 头部注释） ---------- */
-var APP_VERSION = 'v1.1.7';
+var APP_VERSION = 'v1.1.8';
 /* 重置后保留的固定功能分组名 */
 var TOOL_GROUP_TITLE = '功能工具';
 
@@ -848,14 +848,42 @@ function doImport(text) {
 }
 $('importOk').addEventListener('click', function () {
   var f = $('importFile');
-  if (!f.files || !f.files[0]) { toast('请选择 JSON 文件'); return; }
+  if (!f.files || !f.files[0]) { toast('请选择文件'); return; }
+  var file = f.files[0];
+  // 直接上传 Sun-Panel 等导出的 .zip 备份，自动解压后读取内部 config.json
+  if (/\.zip$/i.test(file.name || '')) { importZip(file); return; }
   var reader = new FileReader();
   reader.onload = function (e) {
     try { doImport(e.target.result); }
     catch (er) { toast('导入失败：' + er.message); }
   };
-  reader.readAsText(f.files[0]);
+  reader.readAsText(file);
 });
+/* 解压 zip 备份（如 Sun-Panel 导出的 config.json 压缩包），自动定位内部 JSON 后交给 doImport */
+function importZip(file) {
+  if (typeof JSZip === 'undefined') {
+    toast('解压组件未加载，请改用已解压的 JSON 文件导入');
+    return;
+  }
+  JSZip.loadAsync(file).then(function (zip) {
+    var names = Object.keys(zip.files);
+    var target = null;
+    // 优先找 config.json（兼容嵌套子目录），否则取第一个 .json
+    for (var i = 0; i < names.length; i++) {
+      if (!zip.files[names[i]].dir &&
+          names[i].toLowerCase().split('/').pop() === 'config.json') { target = names[i]; break; }
+    }
+    if (!target) {
+      for (var j = 0; j < names.length; j++) {
+        if (!zip.files[names[j]].dir && /\.json$/i.test(names[j])) { target = names[j]; break; }
+      }
+    }
+    if (!target) throw new Error('压缩包内未找到 JSON 配置文件');
+    return zip.file(target).async('string').then(function (text) { doImport(text); });
+  }).catch(function (err) {
+    toast('zip 导入失败：' + (err && err.message ? err.message : '文件可能已损坏'));
+  });
+}
 /* 从剪贴板导入（移动端文件选择器不可用时兜底） */
 $('importPaste').addEventListener('click', function () {
   if (!navigator.clipboard || !navigator.clipboard.readText) { toast('当前浏览器不支持读取剪贴板'); return; }

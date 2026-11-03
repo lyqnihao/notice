@@ -3,7 +3,7 @@
 基于 Sun-Panel 风格逆向实现的**纯静态个人网站导航页**。无后台、无数据库、无服务器监测，
 数据存浏览器本地（localStorage），可直接部署于 GitHub Pages / Cloudflare Pages / 任意静态托管。
 
-当前版本：**v1.1.7**
+当前版本：**v1.1.8**
 
 ## 功能特性
 
@@ -17,7 +17,7 @@
 - **分类与卡片均可排序**：桌面端直接拖拽；任意端（含手机）也可用右键菜单**上移/下移**。分类支持右键重命名、添加站点、删除。
 - **左侧可折叠分类树**：点击切换分类、显示"全部站点"，固定分类带"固定"标记，窄屏自动收纳。
 - **增删改**：页面按钮即可完成（+分类、+添加站点、编辑、删除），数据自动保存到浏览器；
-  **导出可选格式**（Sun-Panel JSON / 浏览器 HTML 书签），**导入自动识别**本应用 JSON、**Sun-Panel 备份（含 v1.x 与 v2.x，v2 的 url/lanUrl/图标位于 `cardData` 内也能正确提取）**、Chrome/Edge/Firefox 书签 HTML 三种来源。
+  **导出可选格式**（Sun-Panel JSON / 浏览器 HTML 书签），**导入自动识别**本应用 JSON、**Sun-Panel 备份（含 v1.x 与 v2.x，v2 的 url/lanUrl/图标位于 `cardData` 内也能正确提取；可直接上传 `.zip` 压缩包，自动解压读取内部 config.json，无需手动解压）**、Chrome/Edge/Firefox 书签 HTML 三种来源。
 - **重置**：清空所有自建/导入数据，**只保留「功能工具」一个分组**（含 IP 监控、日历时钟两个功能卡及其网络检测站点），回到干净的初始状态。
 - **版本号显示**：左侧分类树底部、"收起分类树"按钮下方一行显示当前代码版本号，随版本同步更新。
 - **固定功能卡**（"功能工具"分类，不可随数据丢失）：
@@ -75,6 +75,7 @@ sun-nav/
 | v1.1.5 | 2026-10-29 | **卡片形态调整**：普通链接卡改为 **2:1 横向卡**（左 Logo、右名称+简介，简介 2 行）；功能卡（IP 监控 / 日历时钟）改为 **跨 2 列 × 2 行**，≤540px 时自动占满整行，内部站点网格 `auto-fit` 自适应（桌面 4 列 / 手机 2 列），修复 IP 卡片右侧站点被裁切、日历底部被截断的问题；功能卡内容垂直居中，留白上下对称 |
 | v1.1.6 | 2026-10-29 | **卡片再紧凑化**：普通卡取消 2:1 锁高，改为「比 Logo 略高」的小卡（Logo 38px / 卡高约 56~66px，简介压到 1 行），网格最小列宽 238→178px（1600px 7 列、1920px 8 列）；**手机端固定每行 2 列**（Logo 34px / 卡高 52px / 字号下调）；功能卡改为 **跨 2 列 × 4 行**（跟随新行高，内容仍完整不裁切） |
 | v1.1.7 | 2026-10-29 | **兼容 Sun-Panel v2 备份导入**：`normalizeImport` 同时支持「顶层字段」与「`cardData` 嵌套字段」两种结构，导入 v2 的 `config.json`（`icons[]` → `group`，`cardData.url/lanUrl/icon.src` → 站点）时不再丢失 URL、内网地址与图标；经真实 v2.0.2 备份（23 分组 / 629 站点）端到端验证，url 629/629、lanUrl 164/164、logo 601/601 全部正确 |
+| v1.1.8 | 2026-11-03 | **支持直接上传 .zip 备份导入**：导入弹窗可直选 Sun-Panel 导出的 `.zip` 包，内置 JSZip 离线解压后自动定位内部 `config.json`（兼容嵌套子目录）并走原有解析逻辑（本应用 / Sun-Panel v1.x·v2.x / 书签 HTML 自动识别），免去手动解压步骤 |
 
 ## 部署
 
@@ -124,7 +125,8 @@ python3 tools/prune-packages.py --list     # 打印当前保留清单
 
 | 版本 | 下载链接 |
 | --- | --- |
-| v1.1.7（最新） | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.1.7.zip?sharecode=L6MHTSDGZ2 |
+| v1.1.8（最新） | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.1.8.zip?sharecode=L6MHTSDGZ2 |
+| v1.1.7 | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.1.7.zip?sharecode=L6MHTSDGZ2 |
 | v1.1.6 | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.1.6.zip?sharecode=L6MHTSDGZ2 |
 | v1.1.5 | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.1.5.zip?sharecode=L6MHTSDGZ2 |
 
