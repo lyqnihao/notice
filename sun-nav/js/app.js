@@ -3,7 +3,7 @@
 'use strict';
 
 /* ---------- 版本号（侧栏底部展示，修改时同步 README / data.js 头部注释） ---------- */
-var APP_VERSION = 'v1.1.8';
+var APP_VERSION = 'v1.2.0';
 /* 重置后保留的固定功能分组名 */
 var TOOL_GROUP_TITLE = '功能工具';
 
@@ -78,7 +78,11 @@ function faviconFor(url) {
   } catch (e) { return ''; }
 }
 
-/* ---------- 数据持久化 ---------- */
+/* ---------- 数据持久化与后端模式 ---------- */
+var LS_PW = 'sun-nav-pw';                          // 记住的访问密码（仅本机）
+var backend = { mode: 'local', password: null };    // 'kv'=Cloudflare KV 云端，'local'=浏览器本地
+var unlockResolve = null;                            // 密码解锁 Promise 的 resolver
+
 function loadData() {
   var raw = null;
   try { raw = localStorage.getItem(LS_DATA); } catch (e) {}
@@ -91,9 +95,69 @@ function loadData() {
   return deepClone(window.SUN_PANEL_DATA || []);
 }
 function saveData() {
+  if (backend.mode === 'kv') {
+    kvPut(state.groups).catch(function (e) { toast('云端保存失败：' + e.message); });
+    return;
+  }
   try { localStorage.setItem(LS_DATA, JSON.stringify(state.groups)); } catch (e) {
     toast('数据较大，保存失败：' + e.message);
   }
+}
+
+/* ---------- 云端（Cloudflare KV）读写与启动流程 ---------- */
+function setSyncStatus(t) { var el = $('syncStatus'); if (el) el.textContent = t; }
+async function kvGet(pw) {
+  var url = '/api/data' + (pw ? ('?pw=' + encodeURIComponent(pw)) : '');
+  var r = await fetch(url, { cache: 'no-store' });
+  if (r.status === 401) throw new Error('密码错误');
+  if (!r.ok) throw new Error('云端读取失败(' + r.status + ')');
+  return r.json();
+}
+async function kvPut(groups) {
+  if (backend.mode !== 'kv') return;
+  var url = '/api/data' + (backend.password ? ('?pw=' + encodeURIComponent(backend.password)) : '');
+  var r = await fetch(url, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(groups)
+  });
+  if (r.status === 401) throw new Error('密码错误');
+  if (!r.ok) throw new Error('云端保存失败(' + r.status + ')');
+}
+function applyData(d) {
+  if (Array.isArray(d) && d.length) state.groups = d;
+  else state.groups = loadData();
+}
+function waitUnlock() { return new Promise(function (res) { unlockResolve = res; }); }
+function showLock() { var s = $('lockScreen'); if (s) s.classList.remove('hidden'); var i = $('lockPass'); if (i) i.focus(); }
+function hideLock() { var s = $('lockScreen'); if (s) s.classList.add('hidden'); }
+async function bootData() {
+  try {
+    var r = await fetch('/api/data', { cache: 'no-store' });
+    if (r.status === 401) {
+      backend.mode = 'kv';
+      var saved = null;
+      try { saved = localStorage.getItem(LS_PW); } catch (e) {}
+      if (saved) {
+        try { applyData(await kvGet(saved)); backend.password = saved; setSyncStatus('云端同步：已连接'); return; }
+        catch (e) { /* 记住的密码已失效，重新输入 */ }
+      }
+      showLock();
+      var pw = await waitUnlock();
+      backend.password = pw;
+      applyData(await kvGet(pw));
+      setSyncStatus('云端同步：已连接');
+      return;
+    }
+    if (r.ok) {
+      backend.mode = 'kv';
+      applyData(await r.json());
+      setSyncStatus('云端同步：已连接');
+      return;
+    }
+    /* 其它状态（404 等）视为无后端，降级为本地存储 */
+  } catch (e) {}
+  backend.mode = 'local';
+  state.groups = loadData();
+  setSyncStatus('本地存储');
 }
 
 /* ---------- 主题 ---------- */
@@ -554,11 +618,13 @@ function openItemModal(mode, gi, ii) {
   $('modal').classList.remove('hidden');
   $('fTitle').focus();
 }
-function closeModal() { $('modal').classList.add('hidden'); $('importModal').classList.add('hidden'); }
+function closeModal() {
+  var m = $('modal'); if (m) m.classList.add('hidden');
+  var im = $('importModal'); if (im) im.classList.add('hidden');
+  var mp = $('managePanel'); if (mp) mp.classList.add('hidden');
+}
 $('modalCancel').addEventListener('click', closeModal);
-$('importCancel').addEventListener('click', closeModal);
 $('modal').addEventListener('click', function (e) { if (e.target === this) closeModal(); });
-$('importModal').addEventListener('click', function (e) { if (e.target === this) closeModal(); });
 
 /* ---------- 弹窗：分类 ---------- */
 var groupModalMode = 'add';
@@ -736,20 +802,26 @@ function toBookmarksHtml(groups) {
   L.push('</DL><p>');
   return L.join('\n');
 }
-$('exportBtn').addEventListener('click', function () { $('exportModal').classList.remove('hidden'); });
-$('expJson').addEventListener('click', function () {
-  $('exportModal').classList.add('hidden');
+/* 管理面板：把导入/导出/重置收进「管理」按钮展开区（仿引擎） */
+$('manageBtn').addEventListener('click', function (e) {
+  e.stopPropagation();
+  $('managePanel').classList.toggle('hidden');
+});
+document.addEventListener('click', function (e) {
+  var p = $('managePanel');
+  if (p && !p.classList.contains('hidden') &&
+      !p.contains(e.target) && e.target !== $('manageBtn') && !$('manageBtn').contains(e.target)) {
+    p.classList.add('hidden');
+  }
+});
+$('manageExpJson').addEventListener('click', function () {
   var fname = 'SunPanel-Data' + fmtDate(new Date()).replace(/[-: ]/g, '') + '.sun-panel.json';
   doExport(fname, JSON.stringify(toSunPanel(state.groups), null, 2), 'application/json');
 });
-$('expHtml').addEventListener('click', function () {
-  $('exportModal').classList.add('hidden');
+$('manageExpHtml').addEventListener('click', function () {
   var fname = 'bookmarks-' + fmtDate(new Date()).replace(/[-: ]/g, '') + '.html';
   doExport(fname, toBookmarksHtml(state.groups), 'text/html');
 });
-$('expClose').addEventListener('click', function () { $('exportModal').classList.add('hidden'); });
-$('exportModal').addEventListener('click', function (e) { if (e.target === this) this.classList.add('hidden'); });
-$('importBtn').addEventListener('click', function () { $('importModal').classList.remove('hidden'); });
 function dedupKey(it) { return ((it.title || '').trim().toLowerCase() + '||' + (it.url || '').trim().toLowerCase()); }
 /* 合并去重：同名分类并入现有，同名同链接自动排除 */
 function mergeGroups(existing, incoming) {
@@ -784,7 +856,7 @@ function appendGroups(incoming, existing) {
   });
 }
 function currentMode() {
-  var modeEl = document.querySelector('input[name=importMode]:checked');
+  var modeEl = document.querySelector('input[name=impMode]:checked');
   return modeEl ? modeEl.value : 'replace';
 }
 /* 解析浏览器书签 HTML（Netscape 格式） */
@@ -846,10 +918,8 @@ function doImport(text) {
   toast(mode === 'replace' ? '已覆盖导入' : mode === 'merge' ? '已合并去重导入' : '已追加导入');
   closeModal();
 }
-$('importOk').addEventListener('click', function () {
-  var f = $('importFile');
-  if (!f.files || !f.files[0]) { toast('请选择文件'); return; }
-  var file = f.files[0];
+function runFileImport(file) {
+  if (!file) { toast('请选择文件'); return; }
   // 直接上传 Sun-Panel 等导出的 .zip 备份，自动解压后读取内部 config.json
   if (/\.zip$/i.test(file.name || '')) { importZip(file); return; }
   var reader = new FileReader();
@@ -858,7 +928,8 @@ $('importOk').addEventListener('click', function () {
     catch (er) { toast('导入失败：' + er.message); }
   };
   reader.readAsText(file);
-});
+}
+$('manageImport').addEventListener('click', function () { runFileImport($('manageFile').files[0]); });
 /* 解压 zip 备份（如 Sun-Panel 导出的 config.json 压缩包），自动定位内部 JSON 后交给 doImport */
 function importZip(file) {
   if (typeof JSZip === 'undefined') {
@@ -885,14 +956,15 @@ function importZip(file) {
   });
 }
 /* 从剪贴板导入（移动端文件选择器不可用时兜底） */
-$('importPaste').addEventListener('click', function () {
+function runPasteImport() {
   if (!navigator.clipboard || !navigator.clipboard.readText) { toast('当前浏览器不支持读取剪贴板'); return; }
   navigator.clipboard.readText().then(function (text) {
     if (!text || !text.trim()) { toast('剪贴板为空'); return; }
     try { doImport(text); }
     catch (er) { toast('导入失败：剪贴板内容不是有效配置：' + er.message); }
   }, function () { toast('读取剪贴板失败，请检查浏览器权限'); });
-});
+}
+$('managePaste').addEventListener('click', runPasteImport);
 /* 重置数据：仅保留「功能工具」一个分组，其它分组与标签全部清空 */
 function buildResetData() {
   var tool = null, i;
@@ -923,7 +995,7 @@ function buildResetData() {
   }
   return [tool];
 }
-$('resetBtn').addEventListener('click', function () {
+function doReset() {
   if (!confirm('确定重置？将只保留「' + TOOL_GROUP_TITLE + '」一个分组，其它所有分组和标签都会被清空。')) return;
   state.groups = buildResetData();
   state.activeGroup = null;
@@ -931,7 +1003,20 @@ $('resetBtn').addEventListener('click', function () {
   $('searchInput').value = '';
   saveData(); renderTree(); renderContent();
   toast('已重置：仅保留「' + TOOL_GROUP_TITLE + '」');
+}
+$('manageReset').addEventListener('click', doReset);
+/* 密码锁：输入密码校验通过后解锁 */
+$('lockSubmit').addEventListener('click', function () {
+  var pw = $('lockPass').value;
+  if (!pw) { $('lockErr').textContent = '请输入密码'; return; }
+  kvGet(pw).then(function () {
+    if ($('lockRemember').checked) { try { localStorage.setItem(LS_PW, pw); } catch (e) {} }
+    else { try { localStorage.removeItem(LS_PW); } catch (e) {} }
+    hideLock();
+    if (unlockResolve) { var r = unlockResolve; unlockResolve = null; r(pw); }
+  }).catch(function (e) { $('lockErr').textContent = e.message; });
 });
+$('lockPass').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('lockSubmit').click(); });
 
 /* ---------- 搜索与搜索引擎 ---------- */
 function runSearch() {
@@ -1181,8 +1266,8 @@ function renderCalendar(cal, now) {
 }
 
 /* ---------- 初始化 ---------- */
-function init() {
-  state.groups = loadData();
+async function init() {
+  $('appVersion').textContent = APP_VERSION;
   try {
     var t = localStorage.getItem(LS_THEME);
     applyTheme(t === 'light' ? 'light' : 'dark');
@@ -1191,9 +1276,9 @@ function init() {
     var es = JSON.parse(localStorage.getItem(LS_ENGINE) || '[]');
     if (Array.isArray(es)) es.forEach(function (id) { state.engines.add(id); });
   } catch (e) {}
-  $('appVersion').textContent = APP_VERSION;
   renderEngines();
   setEngineHidden(window.innerWidth <= 760);   // 窄屏默认收起引擎选项，节省空间
+  await bootData();                            // 检测后端：Cloudflare KV 云端 或 本地降级
   renderTree();
   renderContent();
 }

@@ -3,7 +3,7 @@
 基于 Sun-Panel 风格逆向实现的**纯静态个人网站导航页**。无后台、无数据库、无服务器监测，
 数据存浏览器本地（localStorage），可直接部署于 GitHub Pages / Cloudflare Pages / 任意静态托管。
 
-当前版本：**v1.1.8**
+当前版本：**v1.2.0**
 
 ## 功能特性
 
@@ -19,6 +19,7 @@
 - **增删改**：页面按钮即可完成（+分类、+添加站点、编辑、删除），数据自动保存到浏览器；
   **导出可选格式**（Sun-Panel JSON / 浏览器 HTML 书签），**导入自动识别**本应用 JSON、**Sun-Panel 备份（含 v1.x 与 v2.x，v2 的 url/lanUrl/图标位于 `cardData` 内也能正确提取；可直接上传 `.zip` 压缩包，自动解压读取内部 config.json，无需手动解压）**、Chrome/Edge/Firefox 书签 HTML 三种来源。
 - **重置**：清空所有自建/导入数据，**只保留「功能工具」一个分组**（含 IP 监控、日历时钟两个功能卡及其网络检测站点），回到干净的初始状态。
+- **云端同步与访问控制**：顶部「管理」按钮展开区统一收纳导入/导出/重置；接入 Cloudflare KV 后多端实时同步；可设访问密码锁（仅密码、本机可记住）；支持坚果云 WebDAV 每日定时备份（详见「云端同步」章节）。
 - **版本号显示**：左侧分类树底部、"收起分类树"按钮下方一行显示当前代码版本号，随版本同步更新。
 - **固定功能卡**（"功能工具"分类，不可随数据丢失）：
   - **IP 与连通性测试**：自包含实现（参考 ip.skk.moe），实时显示公网 IP/归属地/ISP，
@@ -76,6 +77,48 @@ sun-nav/
 | v1.1.6 | 2026-10-29 | **卡片再紧凑化**：普通卡取消 2:1 锁高，改为「比 Logo 略高」的小卡（Logo 38px / 卡高约 56~66px，简介压到 1 行），网格最小列宽 238→178px（1600px 7 列、1920px 8 列）；**手机端固定每行 2 列**（Logo 34px / 卡高 52px / 字号下调）；功能卡改为 **跨 2 列 × 4 行**（跟随新行高，内容仍完整不裁切） |
 | v1.1.7 | 2026-10-29 | **兼容 Sun-Panel v2 备份导入**：`normalizeImport` 同时支持「顶层字段」与「`cardData` 嵌套字段」两种结构，导入 v2 的 `config.json`（`icons[]` → `group`，`cardData.url/lanUrl/icon.src` → 站点）时不再丢失 URL、内网地址与图标；经真实 v2.0.2 备份（23 分组 / 629 站点）端到端验证，url 629/629、lanUrl 164/164、logo 601/601 全部正确 |
 | v1.1.8 | 2026-11-03 | **支持直接上传 .zip 备份导入**：导入弹窗可直选 Sun-Panel 导出的 `.zip` 包，内置 JSZip 离线解压后自动定位内部 `config.json`（兼容嵌套子目录）并走原有解析逻辑（本应用 / Sun-Panel v1.x·v2.x / 书签 HTML 自动识别），免去手动解压步骤 |
+| v1.2.0 | 2026-11-03 | **多端同步与访问控制**：新增「管理」按钮展开区收纳导入/导出/重置；Cloudflare KV 云端实时同步（前端经同域 `/api/data` 读写，多端自动一致）；可选访问密码锁（仿 Sun-Panel，仅密码、可本机记住）；坚果云 WebDAV 每日北京时间 09:00 定时备份（时间戳文件名、只增不删）；变量名大小写兼容；无 Cloudflare 后端时自动降级为本地存储 |
+
+## 云端同步（Cloudflare KV + 坚果云定时备份）
+
+本应用支持把书签数据存到 **Cloudflare KV** 实现多端实时同步，并可配置 **坚果云 WebDAV** 作为每日定时备份（仅新增不删除旧文件）。无 Cloudflare 后端时自动降级为浏览器本地存储（见文末「降级说明」）。
+
+### 工作原理
+- **实时同步**：前端通过同域相对路径 `/api/data` 读写 KV（GET 拉取、PUT 保存），多端共用同一命名空间即自动同步。
+- **访问密码锁**：在 Worker 设置 `SITE_PASSWORD` 后，打开页面需输入密码（仿 Sun-Panel，仅密码、无用户名）；勾选「记住密码」可本机免输。未设置则不锁。
+- **定时备份**：Cloudflare Cron（`0 1 * * *` UTC = 北京时间 09:00）触发 Worker，把 KV 当前数据以 `sun-nav-YYYYMMDDHHMMSS.json` 写入坚果云 WebDAV，**只新增、不删除旧备份**（旧备份自行清理）。
+- **变量名大小写兼容**：`WEBDAV_URL` / `webdav_url` 等写法均可，Worker 内部不区分。
+
+### 部署步骤
+1. 创建 KV 命名空间：Cloudflare 控制台 → Workers & Pages → KV → 新建，记下命名空间 ID。
+2. 进入 `worker/` 目录，编辑 `wrangler.toml` 把命名空间 ID 填入 `kv_namespaces` 的 `id` 字段。
+3. 登录并部署 Worker（敏感变量用 secret，避免写进文件）：
+   ```bash
+   npx wrangler login
+   npx wrangler secret put SITE_PASSWORD   # 可选，设置访问密码
+   npx wrangler secret put WEBDAV_USER      # 坚果云账号
+   npx wrangler secret put WEBDAV_PASS      # 坚果云授权码（注意是「授权码」非登录密码）
+   npx wrangler deploy
+   ```
+4. 把前端静态文件（`index.html` / `css` / `js`）部署到 **同一 Cloudflare 环境**（Cloudflare Pages 或 Workers 静态资源），并让 `/api/*` 路由指向该 Worker（Pages 用 Functions 或 Worker 路由，同一域名下前端用相对路径 `/api/data` 即可）。
+5. 在坚果云 WebDAV 下新建备份目录（默认 `/sun-nav`）。
+
+### 配置变量一览
+| 变量（大小写均可） | 必填 | 说明 |
+| --- | --- | --- |
+| `KV`（绑定名） | 是 | `wrangler.toml` 中 `kv_namespaces` 的 binding，默认 `KV` |
+| `SITE_PASSWORD` | 否 | 设置后启用访问密码锁（建议用 secret） |
+| `WEBDAV_URL` | 否 | 坚果云 Dav 地址，如 `https://dav.jianguoyun.com/dav/` |
+| `WEBDAV_USER` | 否 | 坚果云账号（建议用 secret） |
+| `WEBDAV_PASS` | 否 | 坚果云授权码（建议用 secret） |
+| `WEBDAV_PATH` | 否 | 备份目录，默认 `/sun-nav` |
+
+### 降级说明（无 Cloudflare 后端）
+若部署在没有 `/api` 后端的纯静态托管（如当前 workbuddy.host 预览），前端会自动降级：
+- 不启用密码锁；
+- 书签数据存浏览器 `localStorage`（各端独立，需手动导入/导出同步）；
+- 坚果云定时备份不生效。
+所有导入 / 导出 / 重置功能照常可用（统一收纳在顶部「管理」按钮展开区）。
 
 ## 部署
 
@@ -125,7 +168,8 @@ python3 tools/prune-packages.py --list     # 打印当前保留清单
 
 | 版本 | 下载链接 |
 | --- | --- |
-| v1.1.8（最新） | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.1.8.zip?sharecode=L6MHTSDGZ2 |
+| v1.2.0（最新） | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.2.0.zip?sharecode=L6MHTSDGZ2 |
+| v1.1.8 | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.1.8.zip?sharecode=L6MHTSDGZ2 |
 | v1.1.7 | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.1.7.zip?sharecode=L6MHTSDGZ2 |
 | v1.1.6 | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.1.6.zip?sharecode=L6MHTSDGZ2 |
 | v1.1.5 | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.1.5.zip?sharecode=L6MHTSDGZ2 |

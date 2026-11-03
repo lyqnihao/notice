@@ -1,5 +1,5 @@
 // Sun Nav 导航页 - 站点数据
-// 版本: v1.1.8
+// 版本: v1.2.0
 window.SUN_PANEL_DATA = [
  {
   "title": "功能工具",
