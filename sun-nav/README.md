@@ -5,7 +5,7 @@
 > **主部署方式：Cloudflare（Worker + KV）** —— 一个域名同时承载前端与 `/api/data` 接口，实现**多端实时同步**、**访问密码锁**、**坚果云每日定时备份**。
 > 没有 Cloudflare 后端时自动降级为**纯本地存储**（localStorage），导入/导出/重置照常可用，仅关闭云端同步与备份；但部署在无后端环境（GitHub Pages / 任意静态托管 / 直接打开）时，仍可开启**本地访问密码**（首次打开设置，本机加密保护）。
 
-当前版本：**v1.2.2**
+当前版本：**v1.2.3**
 
 ## 功能特性
 
@@ -84,6 +84,7 @@ sun-nav/
 | v1.2.0 | 2026-11-03 | **多端同步与访问控制**：「管理」按钮展开区收纳导入/导出/重置；Cloudflare KV 云端实时同步；可选访问密码锁；坚果云 WebDAV 每日北京时间 09:00 定时备份；变量名大小写兼容；无后端时自动降级本地存储 |
 | v1.2.1 | 2026-11-03 | **字段与 Sun-Panel 统一**：标签「介绍」改为「描述信息」，内部字段 `desc` 统一为 `description`（导出即 Sun-Panel 兼容，旧数据自动迁移）；**重构 Cloudflare 部署**：`wrangler.toml` + `worker.js` 移到子目录根，用 `[assets]` 让前端与 `/api/data` 同域一次性部署；新增 GitHub Actions「Cloudflare 自动部署」工作流并修正「Pages」工作流（须放仓库根 `.github/workflows/`）；README 以 Cloudflare 为主重写部署章节 |
 | v1.2.2 | 2026-11-03 | **修正部署认知 + 补本地密码锁**：修正两个工作流位置（移出子目录、放到仓库根 `notice/.github/workflows/`）；`deploy-pages.yml` 改为发布**整个 notice 仓库**（`path: '.'`），与"Cloudflare 只部署 sun-nav 子目录"分清；新增**纯前端本地访问密码锁**（无后端环境也能设密码：首次打开可设置/跳过、SHA-256 哈希存本地、可记住密码、管理面板可设置/修改/关闭），解决"非 Cloudflare 部署没有密码入口"的问题 |
+| v1.2.3 | 2026-11-03 | **修复 Sun-Panel v2 导入"描述信息"丢失**：导入时对描述字段做**递归多级提取**，兼容 Sun-Panel 各版本把"描述信息"放在顶层 / `cardData` / `cardData.content` / `data` 等任意层级、且字段名可能是 `description`/`desc`/`remark`/`note`/`memo`/`detail`/`describe`/`summary` 的情况；合并/追加导入不再丢描述 |
 
 ## 部署
 
@@ -98,9 +99,57 @@ sun-nav/
 | **Cloudflare 自动部署** | `deploy-cloudflare.yml` | Cloudflare Worker（前端 + `/api/data` 同域） | 仅 `sun-nav/` 子目录（`working-directory: sun-nav`） | `CF_ACCOUNT_ID`、`CF_API_TOKEN`、`KV_NAMESPACE_ID` |
 | **GitHub Pages 发布** | `deploy-pages.yml` | GitHub Pages（纯静态） | **整个 notice 仓库**（`path: '.'`，含 `sun-nav/` 在内的全部内容） | 无需额外 secret（Pages 自带权限） |
 
-- **Cloudflare 工作流**只部署 `sun-nav/` 子目录（前端 + `/api/data` 同域，带同步能力）；**Pages 工作流**把**整个 notice 仓库**发布为静态站点（数据走本地存储，无 KV 同步）。二者互相独立，可按需只启用其中一个。
+- **Cloudflare 工作流**只部署 `sun-nav/` 子目录（前端 + `/api/data` 同域，带同步能力）；**Pages 工作流**把**整个 notice 仓库**发布为静态站点（data 走本地存储，无 KV 同步）。二者互相独立，可按需只启用其中一个。
 
-### 方式一：GitHub Actions 自动部署到 Cloudflare（推荐）
+> **工作流文件在哪 / 为啥下载包里看不到？** 两个 `.yml` 属于**仓库级配置**，位于仓库根 `notice/.github/workflows/`（已就位）。代码包 `sun-nav-vX.Y.Z.zip` 只含 `sun-nav/` 应用目录，因此包里看不到它们——需要查看/下载请直接到仓库的 `.github/workflows/` 目录取（见文末「附件」）。
+
+### 小白一步步部署到 Cloudflare（照做即可，全自动）
+
+> 前置：① 已把 `notice` 仓库推到 GitHub（github.com/lyqnihao/notice）；② 有一个 Cloudflare 账号（免费即可）。
+
+**第 1 步：去 Cloudflare 拿 3 个密钥的值**
+
+| Secret 名称（必须照抄，区分大小写） | 值从哪里来 | 填到哪里（第 2 步） |
+| --- | --- | --- |
+| `CF_ACCOUNT_ID` | 登录 https://dash.cloudflare.com → 首页**右下角「Account ID」**，点一下复制 | GitHub 仓库 Settings → Secrets and variables → Actions → New repository secret |
+| `CF_API_TOKEN` | 右上角头像 → **My Profile** → 左侧 **API Tokens** → **Create Token** → **Create Custom Token**：权限加 `Account → Workers Scripts → Edit` 和 `Account → Workers KV Storage → Edit`，其余默认 → 生成后**只显示一次，立刻复制** | 同上 |
+| `KV_NAMESPACE_ID` | 控制台左侧 **Workers & Pages** → 顶部 **KV**（或 Storage → KV）→ **Create a namespace**（命名随便，如 `sun-nav-data`）→ 建好后列表里那串十六进制 ID 即值 | 同上 |
+
+> 不会命令行也能完成上面全部操作；`CF_API_TOKEN` 的权限务必选 **Edit**（不是 Read），否则部署会报 403。
+
+**第 2 步：把 3 个密钥填进 GitHub（仓库级 Secrets）**
+
+1. 打开 https://github.com/lyqnihao/notice → 顶部 **Settings**（设置）。
+2. 左侧 **Secrets and variables**（密钥与变量）→ **Actions**。
+3. 点 **New repository secret**，逐个添加：
+   - Name：`CF_ACCOUNT_ID`　Secret：第 1 步的 Account ID → **Add secret**
+   - Name：`CF_API_TOKEN`　Secret：第 1 步的令牌 → **Add secret**
+   - Name：`KV_NAMESPACE_ID`　Secret：第 1 步的 KV ID → **Add secret**
+4. 列表里出现这三项即完成。
+
+**第 3 步：触发部署**
+
+1. 回仓库 → 顶部 **Actions** 标签页 → 左侧看到工作流 **Deploy Sun Nav to Cloudflare**。
+2. 点进去 → 右侧 **Run workflow**（选分支 `main`/`master`）→ **Run**。
+3. 约 1–2 分钟后变 ✅ 即成功。之后你每次 `git push` 改动 `sun-nav/` 下文件，它会**自动重新部署**。
+
+**第 4 步（可选）：设置访问密码 / 坚果云定时备份**
+
+这些不在 GitHub Secrets，部署后在 Cloudflare 的 Worker 里设：
+
+- 控制台 → **Workers & Pages** → 找到 Worker **`sun-nav-sync`** → **Settings** → **Variables & Secrets** → **Add**：
+  - `SITE_PASSWORD`（选 **Secret**）：设个密码，之后打开导航要先输入。
+  - `WEBDAV_USER`（Secret）：坚果云账号。
+  - `WEBDAV_PASS`（Secret）：坚果云**授权码**（设置 → 安全 → 第三方应用授权，*不是登录密码*）。
+- 加完到 Actions 再 **Run workflow** 一次使其生效。
+
+**访问地址**
+
+- 默认：`https://sun-nav-sync.<你的 workers.dev 子域>.workers.dev`（子域在 Workers & Pages → 你的账号 → 右侧 `workers.dev` 里设置一次）。
+- 若绑定自有域名，直接用你的域名。
+
+### 方式一：GitHub Actions 自动部署到 Cloudflare（技术细节）
+
 
 1. **准备 Cloudflare**
    - 登录 Cloudflare，记下 **Account ID**（Dashboard 右侧）。
@@ -208,7 +257,8 @@ python3 tools/prune-packages.py --list     # 打印当前保留清单
 
 | 版本 | 下载链接 |
 | --- | --- |
-| v1.2.2（最新） | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.2.2.zip?sharecode=L6MHTSDGZ2 |
+| v1.2.3（最新） | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.2.3.zip?sharecode=L6MHTSDGZ2 |
+| v1.2.2 | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.2.2.zip?sharecode=L6MHTSDGZ2 |
 | v1.2.1 | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.2.1.zip?sharecode=L6MHTSDGZ2 |
 | v1.2.0 | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.2.0.zip?sharecode=L6MHTSDGZ2 |
 | v1.1.8 | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.1.8.zip?sharecode=L6MHTSDGZ2 |
@@ -219,8 +269,19 @@ python3 tools/prune-packages.py --list     # 打印当前保留清单
 > 存档自 **v1.1.5** 起开始保留；更早版本未留存源码快照，无法补建。每次发版后本表会追加新版本链接，被策略淘汰的版本同步移除。
 
 - **Cloudflare（主部署）**：按上方「部署」章节用 `wrangler deploy` 或 GitHub Actions 自动部署（前端 + `/api/data` 同域）。
-- **GitHub Pages**：`deploy-pages.yml` 已在仓库根 `.github/workflows/`，Settings → Pages → Source 选 GitHub Actions，推送即发布**整个 notice 仓库**。
+- **GitHub Pages**：`deploy-pages.yml` 已在仓库根 `.github/workflows/`，Settings → Pages → Source 选 GitHub Actions，推送即发布**整个 notice 仓库**。访问地址形如 `https://lyqnihao.github.io/notice/sun-nav/`（把 `lyqnihao` 换成你的 GitHub 用户名）。此模式无云端同步，数据存本地；可在「管理」面板开启本地密码锁。
 - **其它静态托管**：上传 `deploy-public/` 目录内全部文件即可。
 
 > `deploy-public/` 为纯静态文件（无构建步骤），任意静态托管均可直接托管。
 > 公网部署请一律使用 `deploy-public/`，不要把根目录的 `js/data.js`（完整版）发布到公网。
+
+### 附件：可直接下载的关键配置文件
+
+以下文件属于**仓库级配置**（不在 `sun-nav-vX.Y.Z.zip` 应用包内），都在 `notice` 仓库里，可直接在 GitHub 网页端查看/下载：
+
+| 文件 | 位置 | 作用 |
+| --- | --- | --- |
+| `deploy-cloudflare.yml` | `notice/.github/workflows/` | 自动部署 `sun-nav/` 到 Cloudflare（需 3 个 repo secret） |
+| `deploy-pages.yml` | `notice/.github/workflows/` | 自动发布整个 notice 仓库到 GitHub Pages |
+| `wrangler.toml` | `notice/sun-nav/` | Cloudflare 部署配置（静态资源目录 + KV 绑定 + 每日 09:00 备份触发器） |
+| `worker.js` | `notice/sun-nav/` | Cloudflare Worker 源码（`/api/data` 读写 KV + 密码锁 + 定时备份） |
