@@ -3,7 +3,7 @@
 'use strict';
 
 /* ---------- 版本号（侧栏底部展示，修改时同步 README / data.js 头部注释） ---------- */
-var APP_VERSION = 'v1.2.3';
+var APP_VERSION = 'v1.2.2';
 /* 重置后保留的固定功能分组名 */
 var TOOL_GROUP_TITLE = '功能工具';
 
@@ -811,28 +811,10 @@ function toSunPanel(groups) {
     })
   };
 }
-/* 在对象中递归查找「描述类」字段：兼容 Sun-Panel 各版本的命名/嵌套差异
-   （v2 可能把描述信息放在 cardData、content、data 等任意层级，字段名也可能是
-   description / desc / remark / note / memo / detail / describe / summary 等） */
-function findTextField(obj, re, depth) {
-  if (!obj || typeof obj !== 'object' || depth > 3) return '';
-  if (Array.isArray(obj)) {
-    for (var i = 0; i < obj.length; i++) { var r = findTextField(obj[i], re, depth + 1); if (r) return r; }
-    return '';
-  }
-  for (var k in obj) {
-    if (re.test(k)) { var v = obj[k]; if (typeof v === 'string' && v.trim()) return v.trim(); }
-  }
-  for (var k2 in obj) {
-    var r2 = findTextField(obj[k2], re, depth + 1); if (r2) return r2;
-  }
-  return '';
-}
 /* 归一化导入数据：兼容本应用格式与 Sun-Panel 备份格式 */
 function normalizeImport(data) {
   var groups = Array.isArray(data) ? data : (data && Array.isArray(data.icons) ? data.icons : null);
   if (!groups) throw new Error('无法识别的 JSON 格式');
-  var DESC_RE = /desc|remark|note|memo|detail|describe|summary/i;
   return groups.map(function (g) {
     return {
       title: (g.title || '').trim() || '未命名分类',
@@ -841,15 +823,11 @@ function normalizeImport(data) {
         // 兼容 Sun-Panel v2：url/lanUrl/icon 被包进 cardData 内
         var cd = it.cardData || {};
         var ic = it.icon || cd.icon || {};
-        // 优先取已知字段；取不到再递归整张卡片找「描述类」字段（不限层级/键名）
-        var rawDesc = it.description || it.desc || cd.description || cd.desc ||
-                      (cd.content && (cd.content.description || cd.content.desc)) ||
-                      findTextField(it, DESC_RE, 0);
         return {
           title: (it.title || '').trim(),
           url: (cd.url || it.url || '').trim(),
           lanUrl: (cd.lanUrl || it.lanUrl || '').trim(),
-          description: (rawDesc || '').trim(),
+          description: (it.description || it.desc || cd.description || cd.desc || '').trim(),
           logo: (it.logo || ic.src || '').trim()
         };
       }).filter(function (it) { return it.title; })

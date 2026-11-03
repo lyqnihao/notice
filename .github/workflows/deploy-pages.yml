@@ -35,8 +35,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # 公开部署版：发布 notice 整个仓库目录内容
-          path: '.'
+          # 公开部署版：已剔除敏感分类，仅发布 deploy-public 目录内容
+          path: ./
 
   deploy:
     needs: build
