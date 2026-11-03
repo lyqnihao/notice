@@ -3,7 +3,7 @@
 'use strict';
 
 /* ---------- 版本号（侧栏底部展示，修改时同步 README / data.js 头部注释） ---------- */
-var APP_VERSION = 'v1.2.0';
+var APP_VERSION = 'v1.2.2';
 /* 重置后保留的固定功能分组名 */
 var TOOL_GROUP_TITLE = '功能工具';
 
@@ -80,19 +80,46 @@ function faviconFor(url) {
 
 /* ---------- 数据持久化与后端模式 ---------- */
 var LS_PW = 'sun-nav-pw';                          // 记住的访问密码（仅本机）
+var LS_LOCK = 'sun-nav-lock';                       // 本地密码的 SHA-256 哈希（开启本地锁时存在）
+var LS_LOCK_SKIP = 'sun-nav-lock-skip';             // 用户选择「暂不设置」标记
+var LOCK_SALT = 'sun-nav::local-lock::v1';
 var backend = { mode: 'local', password: null };    // 'kv'=Cloudflare KV 云端，'local'=浏览器本地
 var unlockResolve = null;                            // 密码解锁 Promise 的 resolver
+var lockMode = 'server';                             // 'server'=Cloudflare 后端密码 | 'local'=本地锁 | 'setup'=首次设置
+var lockAllowSkip = true;                            // 设置流程是否允许「暂不设置/取消」
 
+/* 计算字符串 SHA-256 十六进制（用于本地密码，避免明文落盘） */
+async function sha256Hex(text) {
+  try {
+    var data = new TextEncoder().encode(text);
+    var buf = await crypto.subtle.digest('SHA-256', data);
+    return Array.prototype.map.call(new Uint8Array(buf), function (b) {
+      return b.toString(16).padStart(2, '0');
+    }).join('');
+  } catch (e) { return 'fallback:' + text; }
+}
+
+/* 兼容旧字段名 desc -> description（与 Sun-Panel 的「描述信息」统一） */
+function migrateGroups(groups) {
+  if (!Array.isArray(groups)) return groups;
+  groups.forEach(function (g) {
+    (g.items || []).forEach(function (it) {
+      if (it && it.desc != null && it.description == null) it.description = it.desc;
+      if (it) delete it.desc;
+    });
+  });
+  return groups;
+}
 function loadData() {
   var raw = null;
   try { raw = localStorage.getItem(LS_DATA); } catch (e) {}
   if (raw) {
     try {
       var parsed = JSON.parse(raw);
-      if (parsed && Array.isArray(parsed) && parsed.length) return parsed;
+      if (parsed && Array.isArray(parsed) && parsed.length) return migrateGroups(parsed);
     } catch (e) {}
   }
-  return deepClone(window.SUN_PANEL_DATA || []);
+  return migrateGroups(deepClone(window.SUN_PANEL_DATA || []));
 }
 function saveData() {
   if (backend.mode === 'kv') {
@@ -123,12 +150,44 @@ async function kvPut(groups) {
   if (!r.ok) throw new Error('云端保存失败(' + r.status + ')');
 }
 function applyData(d) {
-  if (Array.isArray(d) && d.length) state.groups = d;
+  if (Array.isArray(d) && d.length) state.groups = migrateGroups(d);
   else state.groups = loadData();
 }
 function waitUnlock() { return new Promise(function (res) { unlockResolve = res; }); }
-function showLock() { var s = $('lockScreen'); if (s) s.classList.remove('hidden'); var i = $('lockPass'); if (i) i.focus(); }
+function showLock() {
+  var s = $('lockScreen'); if (s) s.classList.remove('hidden');
+  var i = $('lockPass'); if (i) { i.value = ''; i.focus(); }
+  var i2 = $('lockPass2'); if (i2) i2.value = '';
+  var err = $('lockErr'); if (err) err.textContent = '';
+}
 function hideLock() { var s = $('lockScreen'); if (s) s.classList.add('hidden'); }
+/* 根据 lockMode 调整锁屏文案与可见控件 */
+function applyLockUI() {
+  var title = $('lockTitle'), p2 = $('lockPass2'), skip = $('lockSkip'),
+      submit = $('lockSubmit'), remember = $('lockRememberRow'), hint = $('lockHint');
+  if (lockMode === 'setup') {
+    if (title) title.textContent = '设置访问密码';
+    if (hint) hint.textContent = '首次使用，请设置一个访问密码以加密保护本机导航（可暂不设置）。';
+    if (p2) p2.classList.remove('hidden');
+    if (skip) { skip.classList.remove('hidden'); skip.textContent = lockAllowSkip ? '暂不设置' : '取消'; }
+    if (submit) submit.textContent = '设置并进入';
+    if (remember) remember.classList.add('hidden');
+  } else if (lockMode === 'local') {
+    if (title) title.textContent = '输入访问密码';
+    if (hint) hint.textContent = '本机已启用访问密码，请输入密码后进入。';
+    if (p2) p2.classList.add('hidden');
+    if (skip) skip.classList.add('hidden');
+    if (submit) submit.textContent = '进入';
+    if (remember) remember.classList.remove('hidden');
+  } else { /* server */
+    if (title) title.textContent = '输入访问密码';
+    if (hint) hint.textContent = '';
+    if (p2) p2.classList.add('hidden');
+    if (skip) skip.classList.add('hidden');
+    if (submit) submit.textContent = '进入';
+    if (remember) remember.classList.remove('hidden');
+  }
+}
 async function bootData() {
   try {
     var r = await fetch('/api/data', { cache: 'no-store' });
@@ -140,7 +199,7 @@ async function bootData() {
         try { applyData(await kvGet(saved)); backend.password = saved; setSyncStatus('云端同步：已连接'); return; }
         catch (e) { /* 记住的密码已失效，重新输入 */ }
       }
-      showLock();
+      lockMode = 'server'; applyLockUI(); showLock();
       var pw = await waitUnlock();
       backend.password = pw;
       applyData(await kvGet(pw));
@@ -155,9 +214,34 @@ async function bootData() {
     }
     /* 其它状态（404 等）视为无后端，降级为本地存储 */
   } catch (e) {}
+  /* ---------- 本地模式：可选本地访问密码 ---------- */
   backend.mode = 'local';
-  state.groups = loadData();
-  setSyncStatus('本地存储');
+  var lockHash = null;
+  try { lockHash = localStorage.getItem(LS_LOCK); } catch (e) {}
+  if (lockHash) {
+    lockMode = 'local'; applyLockUI();
+    var rem = null; try { rem = localStorage.getItem(LS_PW); } catch (e) {}
+    if (rem) {
+      var rh = await sha256Hex(rem + LOCK_SALT);
+      if (rh === lockHash) { state.groups = loadData(); setSyncStatus('本地存储（已加密）'); return; }
+      try { localStorage.removeItem(LS_PW); } catch (e) {}
+    }
+    showLock();
+    await waitUnlock();
+    state.groups = loadData();
+    setSyncStatus('本地存储（已加密）');
+  } else {
+    var skip = false; try { skip = localStorage.getItem(LS_LOCK_SKIP) === '1'; } catch (e) {}
+    if (skip) {
+      state.groups = loadData();
+      setSyncStatus('本地存储');
+    } else {
+      lockMode = 'setup'; lockAllowSkip = true; applyLockUI(); showLock();
+      var res = await waitUnlock();   // res = 密码（已设置）或 null（已跳过）
+      state.groups = loadData();
+      setSyncStatus(res ? '本地存储（已加密）' : '本地存储');
+    }
+  }
 }
 
 /* ---------- 主题 ---------- */
@@ -304,7 +388,7 @@ function renderContent() {
       items = items.filter(function (o) {
         var it = o.it;
         return (it.title || '').toLowerCase().indexOf(q) >= 0 ||
-               (it.desc || '').toLowerCase().indexOf(q) >= 0 ||
+               (it.description || '').toLowerCase().indexOf(q) >= 0 ||
                (it.url || '').toLowerCase().indexOf(q) >= 0 ||
                (it.lanUrl || '').toLowerCase().indexOf(q) >= 0;
       });
@@ -375,7 +459,7 @@ function buildCard(item, gi, ii) {
 
   var body = el('div', 'card-body', '');
   body.appendChild(el('div', 'name', escapeHtml(item.title)));
-  if (item.desc) body.appendChild(el('div', 'desc', escapeHtml(item.desc)));
+  if (item.description) body.appendChild(el('div', 'desc', escapeHtml(item.description)));
 
   card.appendChild(logo);
   card.appendChild(body);
@@ -610,7 +694,7 @@ function openItemModal(mode, gi, ii) {
     $('fTitle').value = it.title || '';
     $('fUrl').value = it.url || '';
     $('fLan').value = it.lanUrl || '';
-    $('fDesc').value = it.desc || '';
+    $('fDesc').value = it.description || '';
     $('fLogo').value = it.logo || '';
   }
   fillGroupSelect(gi);
@@ -664,7 +748,7 @@ $('modalForm').onsubmit = function (e) {
     title: title,
     url: $('fUrl').value.trim(),
     lanUrl: $('fLan').value.trim(),
-    desc: $('fDesc').value.trim(),
+    description: $('fDesc').value.trim(),
     logo: $('fLogo').value.trim()
   };
   // 目标分组（可在弹窗中切换到其它分组）
@@ -678,7 +762,7 @@ $('modalForm').onsubmit = function (e) {
   } else {
     var it = state.groups[modalRef.gi].items[modalRef.ii];
     it.title = data.title; it.url = data.url; it.lanUrl = data.lanUrl;
-    it.desc = data.desc; it.logo = data.logo;
+    it.description = data.description; it.logo = data.logo;
     if (targetGi !== modalRef.gi) {
       state.groups[modalRef.gi].items.splice(modalRef.ii, 1);
       state.groups[targetGi].items.push(it);
@@ -716,7 +800,7 @@ function toSunPanel(groups) {
             title: it.title || '',
             url: it.url || '',
             lanUrl: it.lanUrl || '',
-            description: it.desc || '',
+            description: it.description || '',
             openMethod: 2,
             cardType: 0,
             backgroundColor: '',
@@ -743,7 +827,7 @@ function normalizeImport(data) {
           title: (it.title || '').trim(),
           url: (cd.url || it.url || '').trim(),
           lanUrl: (cd.lanUrl || it.lanUrl || '').trim(),
-          desc: (it.desc || it.description || cd.desc || '').trim(),
+          description: (it.description || it.desc || cd.description || cd.desc || '').trim(),
           logo: (it.logo || ic.src || '').trim()
         };
       }).filter(function (it) { return it.title; })
@@ -803,9 +887,11 @@ function toBookmarksHtml(groups) {
   return L.join('\n');
 }
 /* 管理面板：把导入/导出/重置收进「管理」按钮展开区（仿引擎） */
+function hideManage() { var p = $('managePanel'); if (p) p.classList.add('hidden'); }
 $('manageBtn').addEventListener('click', function (e) {
   e.stopPropagation();
   $('managePanel').classList.toggle('hidden');
+  if (!$('managePanel').classList.contains('hidden')) refreshLocalPwState();
 });
 document.addEventListener('click', function (e) {
   var p = $('managePanel');
@@ -986,12 +1072,12 @@ function buildResetData() {
     return false;
   }
   if (!hasWidget('ipmonitor')) {
-    tool.items.unshift({ widget: 'ipmonitor', title: 'IP 与连通性测试', desc: '实时检测本机公网 IP 与主要站点连通性，自动刷新' });
+    tool.items.unshift({ widget: 'ipmonitor', title: 'IP 与连通性测试', description: '实时检测本机公网 IP 与主要站点连通性，自动刷新' });
   }
   if (!hasWidget('calclock')) {
     var pos = 0;
     for (var j = 0; j < tool.items.length; j++) if (tool.items[j].widget === 'ipmonitor') pos = j + 1;
-    tool.items.splice(pos, 0, { widget: 'calclock', title: '日历与时钟', desc: '当前日期与实时时间' });
+    tool.items.splice(pos, 0, { widget: 'calclock', title: '日历与时钟', description: '当前日期与实时时间' });
   }
   return [tool];
 }
@@ -1005,18 +1091,64 @@ function doReset() {
   toast('已重置：仅保留「' + TOOL_GROUP_TITLE + '」');
 }
 $('manageReset').addEventListener('click', doReset);
-/* 密码锁：输入密码校验通过后解锁 */
-$('lockSubmit').addEventListener('click', function () {
+/* 密码锁：按 lockMode 分支处理（Cloudflare 后端密码 / 本地锁 / 首次设置） */
+$('lockSubmit').addEventListener('click', async function () {
   var pw = $('lockPass').value;
+  if (lockMode === 'setup') {
+    if (!pw) { $('lockErr').textContent = '请输入密码'; return; }
+    if (pw.length < 4) { $('lockErr').textContent = '密码至少 4 位'; return; }
+    if (pw !== $('lockPass2').value) { $('lockErr').textContent = '两次输入的密码不一致'; return; }
+    var h = await sha256Hex(pw + LOCK_SALT);
+    try { localStorage.setItem(LS_LOCK, h); } catch (e) {}
+    hideLock();
+    if (unlockResolve) { var r = unlockResolve; unlockResolve = null; r(pw); }
+    return;
+  }
   if (!pw) { $('lockErr').textContent = '请输入密码'; return; }
+  if (lockMode === 'local') {
+    var stored = null; try { stored = localStorage.getItem(LS_LOCK); } catch (e) {}
+    if (await sha256Hex(pw + LOCK_SALT) !== stored) { $('lockErr').textContent = '密码错误'; return; }
+    if ($('lockRemember').checked) { try { localStorage.setItem(LS_PW, pw); } catch (e) {} }
+    else { try { localStorage.removeItem(LS_PW); } catch (e) {} }
+    hideLock();
+    if (unlockResolve) { var rl = unlockResolve; unlockResolve = null; rl(pw); }
+    return;
+  }
+  /* server 模式：用 Cloudflare 后端校验 */
   kvGet(pw).then(function () {
     if ($('lockRemember').checked) { try { localStorage.setItem(LS_PW, pw); } catch (e) {} }
     else { try { localStorage.removeItem(LS_PW); } catch (e) {} }
     hideLock();
-    if (unlockResolve) { var r = unlockResolve; unlockResolve = null; r(pw); }
+    if (unlockResolve) { var rs = unlockResolve; unlockResolve = null; rs(pw); }
   }).catch(function (e) { $('lockErr').textContent = e.message; });
 });
+$('lockSkip').addEventListener('click', function () {
+  if (lockAllowSkip) { try { localStorage.setItem(LS_LOCK_SKIP, '1'); } catch (e) {} }
+  hideLock();
+  if (unlockResolve) { var r = unlockResolve; unlockResolve = null; r(null); }
+});
 $('lockPass').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('lockSubmit').click(); });
+
+/* 管理面板：本地访问密码 设置/修改/关闭 */
+function refreshLocalPwState() {
+  var el = $('localPwState'); if (!el) return;
+  var has = false; try { has = !!localStorage.getItem(LS_LOCK); } catch (e) {}
+  el.textContent = has ? '当前：已启用本地访问密码' : '当前：未启用（首次打开会提示设置）';
+}
+$('manageSetPw').addEventListener('click', function () {
+  var has = false; try { has = !!localStorage.getItem(LS_LOCK); } catch (e) {}
+  lockMode = 'setup';
+  lockAllowSkip = !has;          // 已启用过则不允许「跳过」，只能改或取消
+  applyLockUI();
+  hideManage();
+  showLock();
+  waitUnlock().then(function () { refreshLocalPwState(); });
+});
+$('manageDelPw').addEventListener('click', function () {
+  try { localStorage.removeItem(LS_LOCK); localStorage.removeItem(LS_PW); } catch (e) {}
+  refreshLocalPwState();
+  toast('已关闭本地访问密码');
+});
 
 /* ---------- 搜索与搜索引擎 ---------- */
 function runSearch() {

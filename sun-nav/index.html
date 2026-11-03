@@ -61,6 +61,14 @@
     <div class="mp-section danger">
       <button id="manageReset" class="btn ghost danger-btn">重置（仅保留功能工具）</button>
     </div>
+    <div class="mp-section">
+      <div class="mp-title">本地访问密码（部署在无后端环境时生效）</div>
+      <div class="mp-row">
+        <button id="manageSetPw" class="btn ghost">设置 / 修改</button>
+        <button id="manageDelPw" class="btn ghost danger-btn">关闭</button>
+      </div>
+      <p id="localPwState" class="mp-hint"></p>
+    </div>
     <div class="mp-foot">
       <span id="syncStatus" class="sync-status">本地存储</span>
     </div>
@@ -106,7 +114,7 @@
       </div>
       <div class="field"><label>外网链接</label><input id="fUrl" type="url" placeholder="https://..."></div>
       <div class="field"><label>内网链接（可选）</label><input id="fLan" type="text" placeholder="http://192.168.x.x:端口 或留空"></div>
-      <div class="field"><label>介绍</label><input id="fDesc" type="text" maxlength="120"></div>
+      <div class="field"><label>描述信息</label><input id="fDesc" type="text" maxlength="120" placeholder="站点简介，对应 Sun-Panel 的「描述信息」"></div>
       <div class="field"><label>Logo 地址（可选，留空自动获取）</label><input id="fLogo" type="url" placeholder="https://.../favicon.ico"></div>
       <div class="modal-actions">
         <button type="button" id="modalCancel" class="btn ghost">取消</button>
@@ -116,14 +124,19 @@
   </div>
 </div>
 
-<!-- 访问密码锁 -->
+<!-- 访问密码锁（Cloudflare 后端密码 / 本地无后端时的本地密码，两种模式共用） -->
 <div id="lockScreen" class="lock-screen hidden">
   <div class="lock-box">
-    <h3>输入访问密码</h3>
+    <h3 id="lockTitle">输入访问密码</h3>
+    <p id="lockHint" class="lock-hint"></p>
     <input id="lockPass" type="password" placeholder="密码" autocomplete="current-password">
-    <label class="lock-remember"><input id="lockRemember" type="checkbox"> 记住密码（本机免输入）</label>
-    <button id="lockSubmit" class="btn primary">进入</button>
+    <input id="lockPass2" type="password" placeholder="请再次输入密码" class="hidden" autocomplete="new-password">
+    <label id="lockRememberRow" class="lock-remember"><input id="lockRemember" type="checkbox"> 记住密码（本机免输入）</label>
     <div id="lockErr" class="lock-err"></div>
+    <div class="lock-actions">
+      <button id="lockSubmit" class="btn primary">进入</button>
+      <button id="lockSkip" class="btn ghost hidden">暂不设置</button>
+    </div>
   </div>
 </div>
 

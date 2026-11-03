@@ -1,0 +1,4 @@
+# Wrangler 本地产物 / 依赖 / 本地密钥
+node_modules/
+.wrangler/
+.dev.vars

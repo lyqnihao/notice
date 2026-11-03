@@ -1,0 +1,30 @@
+name = "sun-nav"
+main = "worker.js"
+compatibility_date = "2025-04-01"
+
+# 静态资源目录：公开部署版（已剔除敏感分类），由 Cloudflare 直接托管
+# —— 前端与 /api/data 同域，因此无需任何跨域配置即可多端同步。
+[assets]
+directory = "deploy-public"
+
+# KV 命名空间（多端同步数据存储）。
+# 先在 Cloudflare 控制台 / wrangler 创建一个 KV 命名空间，把它的 ID 填到下面。
+# 用 GitHub Actions 自动部署时，CI 会用 secret KV_NAMESPACE_ID 自动替换下面的占位符。
+[[kv_namespaces]]
+binding = "KV"
+id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+
+# 非敏感配置（也可改成 secret，见 README）。变量名大小写均可，Worker 内部不区分。
+[vars]
+WEBDAV_URL  = "https://dav.jianguoyun.com/dav/"
+WEBDAV_PATH = "/sun-nav"
+
+# 敏感信息请用 secret 设置（不要写在本文件，避免泄露）：
+#   npx wrangler secret put SITE_PASSWORD   # 访问密码锁（可选）
+#   npx wrangler secret put WEBDAV_USER     # 坚果云账号
+#   npx wrangler secret put WEBDAV_PASS     # 坚果云授权码（非登录密码）
+# 变量名大小写均可，Worker 内部不区分（WEBDAV_URL / webdav_url 等价）。
+
+# 定时备份：每天 UTC 01:00 = 北京时间 09:00（只新增、不删旧备份）
+[triggers]
+crons = ["0 1 * * *"]
