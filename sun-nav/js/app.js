@@ -3,7 +3,7 @@
 'use strict';
 
 /* ---------- 版本号（侧栏底部展示，修改时同步 README / data.js 头部注释） ---------- */
-var APP_VERSION = 'v1.2.2';
+var APP_VERSION = 'v1.3.1';
 /* 重置后保留的固定功能分组名 */
 var TOOL_GROUP_TITLE = '功能工具';
 
@@ -901,7 +901,7 @@ document.addEventListener('click', function (e) {
   }
 });
 $('manageExpJson').addEventListener('click', function () {
-  var fname = 'SunPanel-Data' + fmtDate(new Date()).replace(/[-: ]/g, '') + '.sun-panel.json';
+  var fname = 'SunNav-Data' + fmtDate(new Date()).replace(/[-: ]/g, '') + '.SunPanel.json';
   doExport(fname, JSON.stringify(toSunPanel(state.groups), null, 2), 'application/json');
 });
 $('manageExpHtml').addEventListener('click', function () {
@@ -1051,16 +1051,19 @@ function runPasteImport() {
   }, function () { toast('读取剪贴板失败，请检查浏览器权限'); });
 }
 $('managePaste').addEventListener('click', runPasteImport);
-/* 重置数据：仅保留「功能工具」一个分组，其它分组与标签全部清空 */
+/* 重置数据：仅保留「功能工具」一个分组，其它分组与标签全部清空；
+   但「功能工具」内用户自己添加的标签会保留，只补足默认组件（IP监测/日历时钟） */
 function buildResetData() {
   var tool = null, i;
-  var def = deepClone(window.SUN_PANEL_DATA || []);
-  for (i = 0; i < def.length; i++) {
-    if (def[i] && def[i].title === TOOL_GROUP_TITLE) { tool = def[i]; break; }
+  // 优先保留用户现有的「功能工具」分组（含其自定义标签），避免重置时清掉用户内容
+  for (i = 0; i < state.groups.length; i++) {
+    if (state.groups[i] && state.groups[i].title === TOOL_GROUP_TITLE) { tool = deepClone(state.groups[i]); break; }
   }
+  // 若当前数据中没有「功能工具」，再从默认数据取
   if (!tool) {
-    for (i = 0; i < state.groups.length; i++) {
-      if (state.groups[i] && state.groups[i].title === TOOL_GROUP_TITLE) { tool = deepClone(state.groups[i]); break; }
+    var def = deepClone(window.SUN_PANEL_DATA || []);
+    for (i = 0; i < def.length; i++) {
+      if (def[i] && def[i].title === TOOL_GROUP_TITLE) { tool = def[i]; break; }
     }
   }
   if (!tool) tool = { title: TOOL_GROUP_TITLE, pinned: true, items: [] };
@@ -1151,6 +1154,35 @@ $('manageDelPw').addEventListener('click', function () {
 });
 
 /* ---------- 搜索与搜索引擎 ---------- */
+/* 被浏览器拦截（仅放行首个弹窗）的引擎，改为可点击链接浮层，保证都能打开 */
+function showSearchBlocked(list, q) {
+  var box = $('searchLauncher');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'searchLauncher';
+    box.className = 'search-launcher hidden';
+    document.body.appendChild(box);
+  }
+  box.innerHTML = '';
+  var head = document.createElement('div');
+  head.className = 'sl-title';
+  head.innerHTML = '以下搜索被浏览器拦截，点击逐一打开 <span class="sl-close" title="关闭">×</span>';
+  box.appendChild(head);
+  list.forEach(function (en) {
+    var a = document.createElement('a');
+    a.href = engineUrl(en, q);
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.className = 'sl-item';
+    a.textContent = en.name;
+    box.appendChild(a);
+  });
+  box.classList.remove('hidden');
+  head.querySelector('.sl-close').addEventListener('click', function (e) {
+    e.stopPropagation();
+    box.classList.add('hidden');
+  });
+}
 function runSearch() {
   var q = $('searchInput').value.trim();
   if (!q) { toast('请输入搜索内容'); return; }
@@ -1158,18 +1190,20 @@ function runSearch() {
   var engines = all.filter(function (en) { return state.engines.has(en.id || en.name); });
   var targets = engines.length ? engines
     : [all.filter(function (e) { return e.id === DEFAULT_ENGINE; })[0] || all[0]];
-  var opened = 0;
+  var opened = 0, blocked = [];
+  // 逐个打开：浏览器通常只放行首个弹窗，被拦截的引擎收集后改为可点击链接
   targets.forEach(function (en) {
-    var w = window.open(engineUrl(en, q), '_blank');
-    if (w) opened++;
+    var w = window.open(engineUrl(en, q), '_blank', 'noopener');
+    if (w) opened++; else blocked.push(en);
   });
   // 保持本页焦点
   try { window.focus(); } catch (e) {}
-  if (opened < targets.length) toast('部分搜索页被浏览器拦截，请允许弹窗');
   // 清空搜索框并重置筛选
   $('searchInput').value = '';
   state.query = '';
   renderContent();
+  if (blocked.length) showSearchBlocked(blocked, q);
+  else if (opened < targets.length) toast('部分搜索页被浏览器拦截，请在地址栏允许本站点弹窗');
 }
 $('searchBtn').addEventListener('click', runSearch);
 $('searchInput').addEventListener('keydown', function (e) {

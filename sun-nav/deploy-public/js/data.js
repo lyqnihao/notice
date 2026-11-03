@@ -1,5 +1,5 @@
 // Sun Nav 导航页 - 站点数据
-// 版本: v1.2.2
+// 版本: v1.3.1
 window.SUN_PANEL_DATA = [
  {
   "title": "功能工具",
@@ -3300,6 +3300,480 @@ window.SUN_PANEL_DATA = [
   ]
  },
  {
+  "title": "Pornhub",
+  "items": [
+   {
+    "title": "优秀在线视频",
+    "url": "http://192.168.10.6:13002/",
+    "lanUrl": "",
+    "description": "",
+    "logo": ""
+   },
+   {
+    "title": "X99资源导航",
+    "url": "https://x99dh.pro/",
+    "lanUrl": "https://x99dh.vip",
+    "description": "裤佬～18+优选线路导航，https://x99dh.my",
+    "logo": "https://x99dh.pro/favicon.svg"
+   },
+   {
+    "title": "夜潮 NOCTIDE",
+    "url": "https://noctide.web.zaka.live/",
+    "lanUrl": "https://noctide.web.zaka.live/index.html?q=abc",
+    "description": "TG机器人开发部署，成人视频聚合库 · 无广告在线播放。内网为搜索格式",
+    "logo": "https://noctide.web.zaka.live/favicon.svg"
+   },
+   {
+    "title": "盯帧网站",
+    "url": "https://whos.tv/",
+    "lanUrl": "",
+    "description": "以图搜片｜图片搜AV｜截图识别番号｜全球首个日本AV识图搜索引擎",
+    "logo": "https://whos.tv/favicon.ico"
+   },
+   {
+    "title": "黄果短剧",
+    "url": "https://huangguoai.ai/",
+    "lanUrl": "https://huangguoai.pages.dev",
+    "description": "AI成人短剧  精品短剧在线观看平台",
+    "logo": "https://huangguoai.ai/static/web/images/transfer-nav/favicon.ico?v=20260910001"
+   },
+   {
+    "title": "MissAV",
+    "url": "https://missav.ai/zh",
+    "lanUrl": "https://missav.ws/zh",
+    "description": "黄色网站｜麻豆a片",
+    "logo": "https://missav.ai/favicon.ico"
+   },
+   {
+    "title": "123AV",
+    "url": "https://123av.app/cn",
+    "lanUrl": "",
+    "description": "在线观看高清JAV | 免费且高质量的AV",
+    "logo": "https://123av.app/logo.svg"
+   },
+   {
+    "title": "Free Porn",
+    "url": "https://mat6tube.com/recent",
+    "lanUrl": "",
+    "description": "视频搜索引擎，在线播放，可下载",
+    "logo": "https://cdn.nmcorp.video/static/extend/dark/favicon-96x96.png"
+   },
+   {
+    "title": "JavPlayer.Net",
+    "url": "https://javplayer.org/uncensored?sort=most-viewed",
+    "lanUrl": "",
+    "description": "梯子要求高。可在线，可下载，多磨码，广告特别多",
+    "logo": "https://javplayer.org/images/icons/android-icon-128x128.png"
+   },
+   {
+    "title": "FCJAV",
+    "url": "https://fcjav.com/movies?genre=uncensored&quality=all&year=all&sort=liked",
+    "lanUrl": "https://fcjav.com/movies?genre=uncensored&quality=all&year=all&sort=favorite",
+    "description": "类JavPlayer",
+    "logo": "https://fcjav.com/assets/css/img/icons/favicon.png"
+   },
+   {
+    "title": "taimei.tv",
+    "url": "https://taimei.tv/",
+    "lanUrl": "",
+    "description": "在线流畅，低画质",
+    "logo": "https://www.taimei-fesn091.com/favicon.ico"
+   },
+   {
+    "title": "YouPorn",
+    "url": "https://www.youporn.com/",
+    "lanUrl": "",
+    "description": "Free Porn Videos",
+    "logo": "https://www.youporn.com/favicon.ico"
+   },
+   {
+    "title": "TKTube",
+    "url": "https://tktube.com/zh/",
+    "lanUrl": "",
+    "description": "A片在線看 |破解版",
+    "logo": "https://tktube.com/zh/favicon.ico"
+   },
+   {
+    "title": "老司机之家",
+    "url": "https://bitbucket.org/fabuye/madouqu/src/master/",
+    "lanUrl": "https://linkbio.co/laosiji",
+    "description": "",
+    "logo": "https://bio.linkcdn.cc/upload/2024122103/1734750307766.jpeg"
+   },
+   {
+    "title": "PornDude",
+    "url": "https://theporndude.com/zh/top-porn-tube-sites",
+    "lanUrl": "",
+    "description": "经典导航～免费视频分类",
+    "logo": "https://theporndude.com/favicon.svg"
+   },
+   {
+    "title": "蓝色导航",
+    "url": "https://www.bluedaohang.xyz/",
+    "lanUrl": "",
+    "description": "",
+    "logo": ""
+   },
+   {
+    "title": "找AV123导航",
+    "url": "https://www.zavdh.net/",
+    "lanUrl": "",
+    "description": "福利导航,找AV导航",
+    "logo": "https://www.zavdh.net/favicon.ico"
+   },
+   {
+    "title": "绿色小导航",
+    "url": "https://eal.6000a.cfd/%E9%A3%8E%E6%99%AF%E7%A7%80%E4%B8%BD/index.html",
+    "lanUrl": "",
+    "description": "精品福利导航",
+    "logo": "https://eal.6000a.cfd/%E9%A3%8E%E6%99%AF%E7%A7%80%E4%B8%BD/favicon.ico"
+   },
+   {
+    "title": "影视资源采集",
+    "url": "https://www.zzzypro.com/#term-5",
+    "lanUrl": "",
+    "description": "导航～x站资源采集 | 收录站长需要的影视资源采集,X站资源采集和站长所需的各种工具于网站",
+    "logo": "https://www.zzzypro.com/wp-content/uploads/2023/12/Favicon.png"
+   },
+   {
+    "title": "黑料福利网",
+    "url": "https://heleion.xyz/go/",
+    "lanUrl": "",
+    "description": "导航",
+    "logo": "https://188.hlfuli-bid.buzz/template/dxy2/favicon.ico"
+   },
+   {
+    "title": "云良阁导航",
+    "url": "https://yundizhi.my/",
+    "lanUrl": "",
+    "description": "导航-翻墙-梯子-辅助",
+    "logo": ""
+   },
+   {
+    "title": "主页 | yeahhe",
+    "url": "https://www.yeahhe.online/",
+    "lanUrl": "",
+    "description": "",
+    "logo": "https://cdn.jsdelivr.net/gh/alist-org/logo@main/logo.svg"
+   },
+   {
+    "title": "18主页 | 密码mcci",
+    "url": "https://drive.mc.ci/",
+    "lanUrl": "",
+    "description": "",
+    "logo": "https://buck.001231.xyz/favicon.jpg"
+   },
+   {
+    "title": "姿势网盘 | 18",
+    "url": "https://cloud.zsxwz.com/",
+    "lanUrl": "",
+    "description": "",
+    "logo": "https://file.vwood.xyz/favicon/favicon_5bd67192-29ce-4cde-b6c5-453256a3d61c.ico"
+   },
+   {
+    "title": "汪汪汪",
+    "url": "https://www.ffssaa7.site/",
+    "lanUrl": "https://www.98big.com",
+    "description": "私人资源站",
+    "logo": "https://www.ffssaa7.site/template/mxone/mxstatic/picture/logo.png"
+   },
+   {
+    "title": "Xslist.org - 按图搜偶像",
+    "url": "https://xslist.org/zh",
+    "lanUrl": "",
+    "description": "信息检索，特色为以图搜人，无视频",
+    "logo": "https://xslist.org/favicon.ico"
+   },
+   {
+    "title": "1色搜索",
+    "url": "https://yise1.top/sp/",
+    "lanUrl": "",
+    "description": "AV视频搜索",
+    "logo": "https://yise14.xyz/sp/template/yise/statics/img/logo.svg"
+   },
+   {
+    "title": "JAV目錄大全",
+    "url": "https://javmenu.com/",
+    "lanUrl": "https://javmenu.link/",
+    "description": "资料搜索，可预览（部分有全集），有种子",
+    "logo": "https://javmenu.com/assets/images/logo.png"
+   },
+   {
+    "title": "Supjav",
+    "url": "https://supjav.com/category/uncensored-jav?sort=views",
+    "lanUrl": "https://supjav.com/",
+    "description": "类JavPlayer",
+    "logo": "https://supjav.ru/wp-content/uploads/fav_jsaYWEG_512-150x150.png"
+   },
+   {
+    "title": "JAVMM",
+    "url": "https://wwww.javmm21.buzz/",
+    "lanUrl": "",
+    "description": "在线优，高画质，广告多",
+    "logo": "https://wwww.javmm21.buzz/style/favicon.png"
+   },
+   {
+    "title": "红桃视频最新地址发布页",
+    "url": "http://kht80.vip",
+    "lanUrl": "https://t.me/hongtaoavbot",
+    "description": "最新地址 hongtaoav2@gmail.com      https://github.com/htapp/htapp",
+    "logo": "https://nav.linglu.pro/images/2024/12/22/fSVuJYJjydkRFwAxjPVNTbqRfMlxBdUd.png"
+   },
+   {
+    "title": "Pornhub",
+    "url": "https://cn.pornhub.com/",
+    "lanUrl": "",
+    "description": "",
+    "logo": "https://ei.phncdn.com/www-static/images/pornhub_logo_straight.svg?cache=2024081401"
+   },
+   {
+    "title": "XSZAV",
+    "url": "https://cn.xsz-av.com/",
+    "lanUrl": "",
+    "description": "",
+    "logo": "https://cn.xsz-av.com/favicons/apple-touch-icon.png"
+   },
+   {
+    "title": "300个最佳性爱姿势",
+    "url": "https://sex-positions.online/zh-cn/",
+    "lanUrl": "",
+    "description": "用照片和GIF进行评级。哪些是女性和男性的最佳姿势",
+    "logo": "https://sex-positions.online/zh-cn/wp-content/uploads/sites/32/2021/07/cropped-std-192x192.png"
+   },
+   {
+    "title": "Avple.tv",
+    "url": "https://avple.tv/",
+    "lanUrl": "",
+    "description": "免費高清AV在線看 | AV看到飽",
+    "logo": "https://avple.tv/public/favicon.ico"
+   },
+   {
+    "title": "黄瓜资源站",
+    "url": "https://avre.club/",
+    "lanUrl": "",
+    "description": "我们就是资源站的天花板",
+    "logo": "https://avre.club/assets/images/favicon.ico"
+   },
+   {
+    "title": "Beeg",
+    "url": "https://beeg.com/JapaneseUncensored",
+    "lanUrl": "",
+    "description": "Japanese Uncensored",
+    "logo": "https://beeg.com/assets/logo.02.svg"
+   },
+   {
+    "title": "91n",
+    "url": "https://www.qjetar.xyz:6699/12.html",
+    "lanUrl": "",
+    "description": "在线视频",
+    "logo": "https://re1nalltx.xn--1bs9ye16ez8b.com/assets/t1/favicon.png"
+   },
+   {
+    "title": "国产萝莉XO",
+    "url": "https://kb1.a8xxxzooo.com/认真读书/",
+    "lanUrl": "",
+    "description": "在线视频",
+    "logo": "https://globe-tea-item.img12345.com/ico/ynglg.ico"
+   },
+   {
+    "title": "Jable.TV",
+    "url": "https://jable.tv/",
+    "lanUrl": "",
+    "description": "免費高清AV在線看 | J片 AV看到飽",
+    "logo": "https://assets-cdn.jable.tv/assets/icon/favicon.ico"
+   },
+   {
+    "title": "JavTrailers",
+    "url": "https://javtrailers.com/",
+    "lanUrl": "",
+    "description": "信息搜索，视频预览。Jav Streaming Online Free Japanese Adult Video",
+    "logo": "https://javtrailers.com/apple-touch-icon.png"
+   },
+   {
+    "title": "AvHub",
+    "url": "https://avhub.pages.dev/",
+    "lanUrl": "",
+    "description": "AV信息查询 - R18 Resource Search & Manager",
+    "logo": "https://avhub.pages.dev/imgs/favicon.ico"
+   },
+   {
+    "title": "JAVLibrary",
+    "url": "https://www.javlibrary.com/cn/",
+    "lanUrl": "",
+    "description": "Japanese Adult Video Library",
+    "logo": "https://www.javlibrary.com/favicon.ico"
+   },
+   {
+    "title": "AVSOX",
+    "url": "https://avsox.click",
+    "lanUrl": "",
+    "description": "日本无码成人影片情报站",
+    "logo": "https://avsox.click/app/javu/View/img/apple-touch-icon.png"
+   },
+   {
+    "title": "JavBus",
+    "url": "https://www.javbus.com/",
+    "lanUrl": "https://www.seedmm.help",
+    "description": "日本成人影片資料庫",
+    "logo": "https://www.javbus.com/favicon.ico"
+   },
+   {
+    "title": "NULLBR资源分享频道",
+    "url": "https://nullbr.online/nullbr_dmm?category=00.2025",
+    "lanUrl": "",
+    "description": "资源查询，图片预览，部分有在线观看",
+    "logo": "https://nullbr.online/favicon.png"
+   },
+   {
+    "title": "鸟鸟韩漫",
+    "url": "https://nnfb.xyz/",
+    "lanUrl": "",
+    "description": "入口地址发布页",
+    "logo": "https://nnhanman9.com/favicon.svg"
+   },
+   {
+    "title": "福利汇",
+    "url": "https://ops.flh05.com/新年快乐",
+    "lanUrl": "",
+    "description": "导航",
+    "logo": ""
+   },
+   {
+    "title": "色界吧",
+    "url": "https://黃購餃.sejie8.de/墊餓鶴剮闖",
+    "lanUrl": "",
+    "description": "导航",
+    "logo": ""
+   },
+   {
+    "title": "神秘入口",
+    "url": "https://91.smrk120.cc/app/yFUPPO",
+    "lanUrl": "",
+    "description": "导航",
+    "logo": "https://91.smrk120.cc/uploads/20240406/30225156e17ab6352b4d3ed20534db91.png"
+   },
+   {
+    "title": "萌翻导航",
+    "url": "https://dahu3.xyz/eeFHQn",
+    "lanUrl": "",
+    "description": "导航",
+    "logo": ""
+   },
+   {
+    "title": "JavHD名优列表",
+    "url": "https://javhd.com/zh/model/popular",
+    "lanUrl": "",
+    "description": "",
+    "logo": "https://javhd.com/favicon.ico"
+   },
+   {
+    "title": "AstalaVR",
+    "url": "https://astalavr.com/",
+    "lanUrl": "",
+    "description": "FREE VR Porn",
+    "logo": "https://astalavr.com/favicon.ico"
+   },
+   {
+    "title": "50个影视资源采集站分享",
+    "url": "https://14ysdg.com/archives/82",
+    "lanUrl": "",
+    "description": "",
+    "logo": ""
+   },
+   {
+    "title": "小猫影视",
+    "url": "https://cdn.jsdelivr.net/gh/waifu-project/v1@latest/yoyo.json",
+    "lanUrl": "",
+    "description": "视频源",
+    "logo": ""
+   },
+   {
+    "title": "DTV-LibreTV app",
+    "url": "https://ktv.aini.us.kg/config.json",
+    "lanUrl": "",
+    "description": "视频源",
+    "logo": ""
+   },
+   {
+    "title": "69AV",
+    "url": "https://178.69av101.top/",
+    "lanUrl": "",
+    "description": "69av导航页",
+    "logo": "https://178.69av101.top/favicon.ico"
+   },
+   {
+    "title": "500.im",
+    "url": "https://500.im/",
+    "lanUrl": "https://发布地址.com/",
+    "description": "名站免翻地址发布页",
+    "logo": "https://500.im/favicon.ico"
+   },
+   {
+    "title": "JavDB",
+    "url": "https://javdb.com/",
+    "lanUrl": "https://github.com/bdvajstudio/javdb/",
+    "description": "番號資料庫，APP https://jav.app/，https://t.me/javdbnews",
+    "logo": "https://jav.app/img/logo.5a6a7422.png"
+   },
+   {
+    "title": "FFjav.com",
+    "url": "https://ffjav.com/",
+    "lanUrl": "",
+    "description": "JAV Torrents Download Links",
+    "logo": "https://ffjav.com/download/2019/10/timg.jpg"
+   },
+   {
+    "title": "磁力快搜",
+    "url": "https://codeseek.pp.ua/main",
+    "lanUrl": "https://github.com/Zoroaaa/codeseek",
+    "description": "Cloudflare自建jav搜索引擎，lyqbox@123456789",
+    "logo": "https://codeseek.pp.ua/icons/apple-touch-icon.png"
+   },
+   {
+    "title": "AvPlay",
+    "url": "https://www.javrocket.top/",
+    "lanUrl": "",
+    "description": "一个优雅的开车APP",
+    "logo": "https://www.javrocket.top/favicon.ico"
+   },
+   {
+    "title": "黄果短剧app",
+    "url": "https://hgtv001.com",
+    "lanUrl": "https://t.me/hgmanju",
+    "description": "",
+    "logo": "https://hgtv001.com/favicon.ico"
+   },
+   {
+    "title": "黄果短剧媒体流解析",
+    "url": "https://huangguovideo-01.pages.dev/",
+    "lanUrl": "",
+    "description": "",
+    "logo": "https://huangguovideo-01.pages.dev/favicon.ico"
+   },
+   {
+    "title": "禁果短剧",
+    "url": "https://www.jinguoduanju.me/",
+    "lanUrl": "https://www.jgdj.app/",
+    "description": "",
+    "logo": "https://www.jinguoduanju.me/brand-icon.png?v=20260829-transparent"
+   },
+   {
+    "title": "什么值得冲 (JavRanking)",
+    "url": "https://javranking.cc/zh-hans/",
+    "lanUrl": "",
+    "description": "成人影片排行榜与必看神作推荐",
+    "logo": "https://javranking.cc/brand/favicon-32-v3.png"
+   },
+   {
+    "title": "134X",
+    "url": "https://134x.com/",
+    "lanUrl": "",
+    "description": "X 黃推長視頻｜1 小時以上推特成人視頻",
+    "logo": "https://134x.com/icons/icon-192.png"
+   }
+  ]
+ },
+ {
   "title": "建站服务器",
   "items": [
    {
@@ -3504,6 +3978,674 @@ window.SUN_PANEL_DATA = [
     "lanUrl": "",
     "description": "免费静态网页",
     "logo": "https://www.cloudflare.com/favicon.ico"
+   }
+  ]
+ },
+ {
+  "title": "搭梯子",
+  "items": [
+   {
+    "title": "clash节点转换工具",
+    "url": "https://v2rayse.com/node-convert/",
+    "lanUrl": "",
+    "description": "",
+    "logo": "https://v2rayse.com/logo/default.png"
+   },
+   {
+    "title": "科学上网工具箱",
+    "url": "https://v2rayse.com/",
+    "lanUrl": "",
+    "description": "v2rayse",
+    "logo": "https://v2rayse.com/logo/default.png"
+   },
+   {
+    "title": "Mihomo Party",
+    "url": "https://mihomo.party/",
+    "lanUrl": "",
+    "description": "机场工具",
+    "logo": "https://mihomo.party/logo.png"
+   },
+   {
+    "title": "代理客户端·收集·下载",
+    "url": "https://ausers.github.io/",
+    "lanUrl": "",
+    "description": "",
+    "logo": "https://ausers.github.io/files/favicon.ico"
+   },
+   {
+    "title": "Clash-for-Windows下载",
+    "url": "https://github.com/Z-Siqi/Clash-for-Windows_Chinese",
+    "lanUrl": "",
+    "description": "",
+    "logo": "https://avatars.githubusercontent.com/u/77391690?s=48&v=4"
+   },
+   {
+    "title": "wireguard下载",
+    "url": "https://www.wireguard.com/install/",
+    "lanUrl": "",
+    "description": "",
+    "logo": "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.wireguard.com&size=64"
+   },
+   {
+    "title": "优选IP",
+    "url": "https://stock.hostmonit.com/CloudFlareYes",
+    "lanUrl": "",
+    "description": "",
+    "logo": "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://stock.hostmonit.com/CloudFlareYes&size=64"
+   },
+   {
+    "title": "通过两个网站取免费的节点",
+    "url": "https://www.youtube.com/watch?v=Uqx0NGWNgCU",
+    "lanUrl": "",
+    "description": "",
+    "logo": "https://www.youtube.com/s/desktop/ff62cad7/img/logos/favicon_96x96.png"
+   },
+   {
+    "title": "zero trust IP 设置",
+    "url": "https://github.com/lyqnihao/proxy/blob/main/v2rayse/proxy30se.txt",
+    "lanUrl": "",
+    "description": "",
+    "logo": "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://github.com&size=64"
+   },
+   {
+    "title": "warp+异常的解决方案",
+    "url": "https://www.ai-money.club/2024/06/08/warp%e7%9a%84%e6%9b%bf%e4%bb%a3%e4%ba%a7%e5%93%81%ef%bc%9avpn/",
+    "lanUrl": "",
+    "description": "",
+    "logo": "https://www.ai-money.club/wp-content/uploads/2024/05/ai-money.club_.jpg"
+   },
+   {
+    "title": "完美替代WARP",
+    "url": "https://kjgx668.blogspot.com/2024/08/ip4kpsiphonipipchatgtp.html?m=1",
+    "lanUrl": "",
+    "description": "完美替代WARP，实测速度12W+【零基础】最新零成本搭建高速免费节点保姆级教程，无限流量！免费无限制，优选ip，网速极快，4k秒开，Psiphon结合代理软件，主流国家ip随意切换！一招锁定任意国家",
+    "logo": ""
+   },
+   {
+    "title": "CMLiussss 梯子技术",
+    "url": "https://youtube.com/@CMLiussss",
+    "lanUrl": "https://t.me/CMLiussss",
+    "description": "原公益订阅失效，内网地址为TG，有节点检测合并技术",
+    "logo": "https://yt3.ggpht.com/gcGeNmDx7zoenuKDJeaaS49rBS8laTl3Il6w6lbR71XIZtq94cG99YEROcbsgq0667dJDxuDjw=s68-c-k-c0x00ffffff-no-rj"
+   },
+   {
+    "title": "手搓yaml配置文件",
+    "url": "https://www.qichiyu.com/232.html",
+    "lanUrl": "",
+    "description": "【全网最细】clash/mihomo系列通用、保姆级教程、让你彻底搞懂yaml文件",
+    "logo": "https://www.qichiyu.com/wp-content/uploads/2024/07/7a2f9a4dfc6fdfcceaff991c0c9dc686.png"
+   },
+   {
+    "title": "Free FRP",
+    "url": "https://freefrp.net/",
+    "lanUrl": "",
+    "description": "免费 FRP 内网穿透，主要安全",
+    "logo": "https://freefrp.net/favicon.ico"
+   },
+   {
+    "title": "OpenClash 最强攻略",
+    "url": "https://youtube.com/watch?v=S2l_0g4EOHk&si=mL4QWSI5a_vrPKP7",
+    "lanUrl": "",
+    "description": "30分钟 OpenClash 最强攻略，FakeIP 最佳部署，无DNS污染，无DNS泄露，自动选择、负载均衡，丝滑切换节点，永不断网，全网最强",
+    "logo": "https://www.youtube.com/s/desktop/ff62cad7/img/logos/favicon_96x96.png"
+   },
+   {
+    "title": "数码解码",
+    "url": "https://smjm.ct.ws/",
+    "lanUrl": "https://www.youtube.com/@DECODING-w7d",
+    "description": "免费vps节点搭建技术博客",
+    "logo": "https://smjm.ct.ws/favicon.ico"
+   }
+  ]
+ },
+ {
+  "title": "公益机场",
+  "items": [
+   {
+    "title": "IPCheck.ing",
+    "url": "https://ipcheck.ing/",
+    "lanUrl": "",
+    "description": "查看我的 IP 信息",
+    "logo": "https://ipcheck.ing/logos/ios-logo-512.png"
+   },
+   {
+    "title": "ZRF.ME | 订阅转换工具",
+    "url": "https://sub.zrfme.com/",
+    "lanUrl": "https://blog.zrf.me/p/SubWeb/",
+    "description": "演示站+教程，Cloudflare",
+    "logo": "https://blog.zrf.me/img/logo.webp"
+   },
+   {
+    "title": "Sublink Worker",
+    "url": "https://sublink-worker.sageer.me/",
+    "lanUrl": "",
+    "description": "挺好的订阅链接转换工具",
+    "logo": "https://sublink-worker.sageer.me/favicon.ico"
+   },
+   {
+    "title": "在线订阅转换工具",
+    "url": "https://suburl.v1.mk/",
+    "lanUrl": "",
+    "description": "转换效果好，可用于路由",
+    "logo": "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://sub.v1.mk&size=64"
+   },
+   {
+    "title": "订阅转换-搭配机场使用",
+    "url": "https://acl4ssr-sub.github.io/",
+    "lanUrl": "",
+    "description": "几乎无效，给机场添加高级分组功能",
+    "logo": "https://acl4ssr-sub.github.io/favicon.ico"
+   },
+   {
+    "title": "mihomo/singbox汇聚工具",
+    "url": "https://sub.ikar.eu.org/",
+    "lanUrl": "",
+    "description": "订阅转换工具",
+    "logo": "data:image/svg+xml,%3Csvg%20id='Partition-Auto--Streamline-Carbon'%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2016%2016'%20height='16'%20width='16'%3E%3Cdesc%3EPartition%20Auto%20Streamline%20Icon%3A%20https%3A//streamlinehq.com%3C/desc%3E%3Cdefs%3E%3C/defs%3E%3Cpath%20d='M13%209.5c-1.1028%200%20-2%200.8972%20-2%202%200%200.3418%200.0941%200.6587%200.24585%200.94045C10.30775%2013.12675%209.17285%2013.5%208%2013.5%204.9673%2013.5%202.5%2011.0327%202.5%208H1.5c0%203.584%202.9159%206.5%206.5%206.5%201.42275%200%202.79615%20-0.468%203.92165%20-1.3208C12.2334%2013.38015%2012.6023%2013.5%2013%2013.5c1.1028%200%202%20-0.8972%202%20-2s-0.8972%20-2%20-2%20-2Zm0%203c-0.5514%200%20-1%20-0.44875%20-1%20-1s0.4486%20-1%201%20-1%201%200.44875%201%201%20-0.4486%201%20-1%201Z'%20fill='%23000000'%20stroke-width='0.5'/%3E%3Cpath%20d='M8%201.5c-1.42275%200%20-2.79615%200.468%20-3.92165%201.3208C3.7666%202.61985%203.3977%202.5%203%202.5%201.8972%202.5%201%203.3972%201%204.5s0.8972%202%202%202%202%20-0.8972%202%20-2c0%20-0.3418%20-0.0941%20-0.6587%20-0.24585%20-0.94045C5.69225%202.87325%206.82715%202.5%208%202.5c3.0327%200%205.5%202.4673%205.5%205.5h1c0%20-3.584%20-2.9159%20-6.5%20-6.5%20-6.5ZM3%205.5c-0.5514%200%20-1%20-0.44875%20-1%20-1s0.4486%20-1%201%20-1%201%200.44875%201%201%20-0.4486%201%20-1%201Z'%20fill='%23000000'%20stroke-width='0.5'/%3E%3Cpath%20id='_Transparent_Rectangle_'%20d='M0%200h16v16H0Z'%20fill='none'%20stroke-width='0.5'/%3E%3C/svg%3E"
+   },
+   {
+    "title": "CM订阅转换",
+    "url": "https://sub.fxxk.dedyn.io/",
+    "lanUrl": "",
+    "description": "",
+    "logo": "https://sub.fxxk.dedyn.io/favicon.ico"
+   },
+   {
+    "title": "在线订阅转换工具",
+    "url": "https://demo.sub.cmliussss.net/",
+    "lanUrl": "https://github.com/cmliu/sub-web-modify",
+    "description": "订阅转换前端增强版，增加近百条远程配置及更多自定义功能！",
+    "logo": "https://demo.sub.cmliussss.net/favicon.ico"
+   },
+   {
+    "title": "优质机场",
+    "url": "http://192.168.10.251:13002/",
+    "lanUrl": "",
+    "description": "长期可用",
+    "logo": ""
+   },
+   {
+    "title": "免费机场",
+    "url": "https://ygpy.net/",
+    "lanUrl": "",
+    "description": "提供免费机场信息",
+    "logo": "https://ygpy.net/favicon.ico"
+   },
+   {
+    "title": "iKuuu VPN",
+    "url": "https://ikuuu.one/user##",
+    "lanUrl": "https://ikuuu.one/auth/register?code=XQWn",
+    "description": "每月50G，签到领流量，自动续约。内网地址为邀请地址",
+    "logo": "https://small-files.make-w0rld-static.club/file/ikuuu-static-release/ikuuu-web-front/theme-1.0.9/theme-e5556/malio/assets/img/stisla-fill.svg"
+   },
+   {
+    "title": "水牛云",
+    "url": "https://www.牛.org/",
+    "lanUrl": "https://t.me/niua_org",
+    "description": "TG 优惠码，每月100G。http://www.牛.org/，永久发布页",
+    "logo": "https://www.牛.org/images/logo.png"
+   },
+   {
+    "title": "Free Cloud - 人民广场",
+    "url": "https://asus.im/#/dashboard",
+    "lanUrl": "https://t.me/zero_freez",
+    "description": "每月100G，自动续期",
+    "logo": "https://asus.im/favicon.ico"
+   },
+   {
+    "title": "宝可梦星云",
+    "url": "https://web2.52pokemon.cc/dashboard",
+    "lanUrl": "https://t.me/pokemon_love",
+    "description": "TG兑换，每月60G",
+    "logo": "https://s2.loli.net/2024/12/23/qD5TgXorsZavVye.png"
+   },
+   {
+    "title": "天狼星机场",
+    "url": "https://siris.eu.org/#/dashboard",
+    "lanUrl": "https://t.me/siris_chat",
+    "description": "TG 优惠码 续订，每月20G。https://t.me/siris_chat 领取优惠码",
+    "logo": "https://cdn5.cdn-telegram.org/file/f0nigBiB7qOSyEJczDYDq90wI_6L8-fG0sTted4R99R0cvmJhILpKwGpKyccL591RD4g01agmywwt6TtUApa3R8mMTt4CNClsCBLRn-PltSjpLP8XbggxhZuj6v66RfL6YBWigHiBovtgHJj2EiVOmiLwmYF57u2jvPwCb7V1SGsWI0kMR7HlVy1Ot2jQz9OGVqgBzg4r7Am6iIqlon6f6SgLIZ65Z3J33rO5ZCTLsmtUAhomZktRRa93khLG2Zy2590Q-QYdgv01bWcXxc5DxEEYj6_lvEeywoK95GB7jgwnDGsn6Ucxj8iXfyW4AcVzbMq4Dh241FYCMOBOcFdNg.jpg"
+   },
+   {
+    "title": "LEN 机场",
+    "url": "http://app.红茶店.com",
+    "lanUrl": "http://name.cloudlinks.info",
+    "description": "长期10G，频道：https://t.me/len_networks",
+    "logo": ""
+   },
+   {
+    "title": "华夏联盟",
+    "url": "https://www.huaxia1.de/#/stage/dashboard",
+    "lanUrl": "https://t.me/huaxiahvg4",
+    "description": "长期套餐，但节点少，每月流量有限，可能月底不可用",
+    "logo": "https://www.huaxia1.de/favicon.ico"
+   },
+   {
+    "title": "大白-公益",
+    "url": "https://www.dabai.in/user",
+    "lanUrl": "https://t.me/dabai_user",
+    "description": "每月底续订，到期才能买。公益订阅长期可用，公共订阅：https://l.db-link01.top/link/z2SMogEehRtWyNWq?clash=1",
+    "logo": "https://www.dabai.in/favicon.ico"
+   },
+   {
+    "title": "SSRSub Cloud",
+    "url": "https://sub.ssrsub.com/#/dashboard",
+    "lanUrl": "https://ssrsub.com/",
+    "description": "15G每月，一次性一年，每个账号只能用两次，应急用。https://t.me/SSRSUB_BOT",
+    "logo": "https://ssrsub.com/favicon.ico"
+   },
+   {
+    "title": "长期项目",
+    "url": "http://192.168.10.10:3002/",
+    "lanUrl": "",
+    "description": "非订阅模式",
+    "logo": ""
+   },
+   {
+    "title": "helpweb.pages.dev",
+    "url": "https://helpweb.pages.dev",
+    "lanUrl": "",
+    "description": "牛逼公益立场合集",
+    "logo": "https://www.v2nodes.com/assets/img/favicon-32x32.png"
+   },
+   {
+    "title": "NoMoreWalls",
+    "url": "https://peasoft.github.io/NWalls.html",
+    "lanUrl": "https://t.me/MrXbin",
+    "description": "github-地址：https://github.com/peasoft/NoMoreWalls",
+    "logo": "https://peasoft.github.io/favicon.ico"
+   },
+   {
+    "title": "nodefree",
+    "url": "https://raw.githubusercontent.com/lyqnihao/proxy/main/nodefree/target.yaml",
+    "lanUrl": "https://nodefree.me/",
+    "description": "每日手动更新订阅",
+    "logo": "https://nodefree.org/wp-content/uploads/2022/04/favicon.png"
+   },
+   {
+    "title": "免费clash节点",
+    "url": "https://clashgithub.com/",
+    "lanUrl": "https://github.com/free-nodes/clashfree",
+    "description": "类似 nodefree.me",
+    "logo": "https://clashgithub.com/wp-content/uploads/2025/08/avatar-150x150-1.jpg"
+   },
+   {
+    "title": "大翻墙运动",
+    "url": "https://end-gfw.com/",
+    "lanUrl": "",
+    "description": "免费翻墙软件 - 完全免费VPN代理服务",
+    "logo": "https://end-gfw.com/images/default.png"
+   },
+   {
+    "title": "free-nodes",
+    "url": "https://github.com/free-proxy-nodes/free-nodes",
+    "lanUrl": "https://v2raya.net/categories/free-nodes/",
+    "description": "昌南魔法学院",
+    "logo": "https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png"
+   },
+   {
+    "title": "Proxyqueen",
+    "url": "https://www.proxyqueen.top/",
+    "lanUrl": "",
+    "description": "免费节点分享～每日动态日期",
+    "logo": "https://www.proxyqueen.top/usr/themes/SimpleRR-main/Image/icon.png"
+   },
+   {
+    "title": "xconfig",
+    "url": "https://xconfig.pages.dev/index2",
+    "lanUrl": "https://xconfig.pages.dev/u3base-conf.js",
+    "description": "免费节点，内网为真实地址表，大多失效",
+    "logo": "https://xconfig.pages.dev/images/logo.png"
+   },
+   {
+    "title": "HiN VPN",
+    "url": "https://raw.githubusercontent.com/thefatedefeater/HiN-VPN/main/subscription/normal/mix",
+    "lanUrl": "https://github.com/thefatedefeater/HiN-VPN",
+    "description": "https://github.com/thefatedefeater/HiN-VPN，页面链接错误，需将itsyebekhe替换为thefatedefeater",
+    "logo": "data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e"
+   },
+   {
+    "title": "v2cross（Pawdroid）",
+    "url": "https://v2cross.com/1884.html",
+    "lanUrl": "https://t.me/shadowrocket_android",
+    "description": "github-订阅地址：https://github.com/Pawdroid/Free-servers",
+    "logo": "https://v2cross.com/wp-content/uploads/2020/05/cropped-%E9%A3%9E%E6%9C%BA-1-180x180.png"
+   },
+   {
+    "title": "🔖裤佬书签收藏",
+    "url": "https://jsnzkpg.github.io/",
+    "lanUrl": "https://github.com/Jsnzkpg/Jsnzkpg",
+    "description": "梯子、视频订阅",
+    "logo": ""
+   },
+   {
+    "title": "ZRF.ME | 科学公益站",
+    "url": "https://lsmkc.pages.dev/",
+    "lanUrl": "https://blog.zrf.me/",
+    "description": "周润发的主页 - 收录开源，好用的互联网项目。公益订阅，订阅转换，IP连通测试",
+    "logo": "https://lsmkc.pages.dev/favicon.ico"
+   },
+   {
+    "title": "DanFeng 公益代理",
+    "url": "https://2sniweb.danfeng.eu.org/",
+    "lanUrl": "https://t.me/danfeng_chat",
+    "description": "公益-好，https://snippet.danfeng.site/",
+    "logo": "https://2snippet.danfeng.site/logo.svg"
+   },
+   {
+    "title": "无界探索bsbb",
+    "url": "https://www.bsbb.cc/",
+    "lanUrl": "https://t.me/vpnnodes",
+    "description": "每日点击，10秒后列表",
+    "logo": "https://cdn5.telesco.pe/file/rI8ocNjU_ztaK5h09AQqjQNI0JMQVvVKZKSZAjPMYFhXy-NOgG2sSrHOM7oT_ZYVe07epMEzr-KqiKzsKGlaNH29CfoM9iXGgt9hWWVcVq5D2Z40z3NuuB0EJTzMqPuKhSYpz5QtvxzyH5yngrTbJ59S0n4ZKga_R9GGwJKmqQelxRgZMzAFqzWgCPJDYiG8w9feLTNOCGPLxyD4XpGG9Lcu_fVLldZKgjzyIz-bnDiIXlnwCXbQZQPR-zEkWf_3vlPVtaNP94CTDcSsqqdFaQD6OmV1RVzi3Qn8Q0DbiP5FKq0nRodEBa23YQHPcG70zIro2cDEz1OQ8oF-9GsMfA.jpg"
+   },
+   {
+    "title": "V2Nodes",
+    "url": "https://zh.v2nodes.com/",
+    "lanUrl": "",
+    "description": "多国V2Ray公共列表",
+    "logo": "https://zh.v2nodes.com/assets/img/apple-touch-icon.png"
+   },
+   {
+    "title": "X-阿牛订阅链接",
+    "url": "https://www.x-aniu.com/",
+    "lanUrl": "",
+    "description": "ECH代理，暂时不知道怎么用",
+    "logo": "https://www.x-aniu.com/bull.png"
+   },
+   {
+    "title": "机场导航",
+    "url": "https://vpnnav.github.io/#181e328e3c91d90ad16f6eb11f9d4d57",
+    "lanUrl": "",
+    "description": "梯子导航|VPN导航站|免费节点|科学上网|翻墙导航|翻墙工具|节点导航|VPN",
+    "logo": "https://vpnnav.github.io/assets/images/bi-favicon.ico"
+   },
+   {
+    "title": "白嫖分享社",
+    "url": "https://dapei0402.github.io/",
+    "lanUrl": "https://t.me/pgkj666",
+    "description": "免费 每日更新软件破解｜高速节点｜AI神器｜宝藏网站｜学习资源",
+    "logo": "https://dapei0402.github.io/favicon.ico"
+   },
+   {
+    "title": "CloudFlare优选域名-IP",
+    "url": "https://cf.090227.xyz/",
+    "lanUrl": "https://t.me/yydsys/1158",
+    "description": "ECH梯子软件https://t.me/yydsys/1158：服务器地址：hhech.pages.dev:443 身份令牌：honghong",
+    "logo": "https://cf.090227.xyz/favicon.ico"
+   },
+   {
+    "title": "大培资源站_白嫖分享社",
+    "url": "https://dpkeji.blogspot.com/",
+    "lanUrl": "",
+    "description": "多个免费节点项目教程 | 免费长期订阅",
+    "logo": "https://dpkeji.blogspot.com/favicon.ico"
+   },
+   {
+    "title": "MENGの免费 VPN",
+    "url": "https://love.zshabai.top/",
+    "lanUrl": "",
+    "description": "",
+    "logo": ""
+   },
+   {
+    "title": "Paily Connect",
+    "url": "https://pai.yt/",
+    "lanUrl": "https://github.com/paimonhub/nodpai",
+    "description": "保持连接，保持热爱",
+    "logo": "https://cdn1.telesco.pe/file/cO_ppG8HRtUb4APfITN8eNtfnUwi33U5BJeLmByQff-OfL0G96UZ-CEz4EMpPA06EWO4G2gmiBtrBSsvweSBpsP9TPw6MX7QxrFM_p4JNnw5mWjt5w1eh3W8P36X788TY5NOO_IxpMIqBhEiyGW4U4MPlzeE-VZtJTE6jn8uiH8TcghHUAocyrP9l0SuqN18qIRe8j-zXYqtuzZ0PmYuLGtw2EMUmbhyhOWv7xtMn1_cUnXGHEfjqSAH7mXQ8dmKcSi0KlEUa1xkgyXIifzNNS5aMrR_Z3QgaYTiWHTvKcnwtm-9fSPEZFXTItjTtaatg-BBoRxcPEr1R51sdKZ77g.jpg"
+   },
+   {
+    "title": "Github公益节点",
+    "url": "https://github.com/search?q=saved%3Av2rayfree+&type=repositories&saved_searches=%5B%7B%22name%22%3A%22v2rayfree%22%2C%22query%22%3A%22v2ray+free%22%7D%5D&expanded_query=v2ray+free+&s=updated&o=desc",
+    "lanUrl": "",
+    "description": "free+V2Ray搜项目",
+    "logo": "https://github.githubassets.com/favicons/favicon.png"
+   },
+   {
+    "title": "FOFA网络空间测绘系统",
+    "url": "https://fofa.info/result?qbase64=Ym9keT0i6Ieq5Yqo5oqT5Y%20WdGfpopHpgZPjgIHorqLpmIXlnLDlnYDjgIHlhazlvIDkupLogZTnvZHkuIrnmoRzc%20OAgXNzcuOAgXZtZXNz44CBdHJvamFu6IqC54K55L%20h5oGvIg%3D%3D",
+    "lanUrl": "https://fofa.info/result?qbase64=Ym9keT0icG9ydDogNzg5MCIgJiYgYm9keT0ic29ja3MtcG9ydDogNzg5MSIgJiYgYm9keT0iYWxsb3ctbGFuOiB0cnVlIiAmJiBzZXJ2ZXI9PSJjbG91ZGZsYXJlIg%3D%3D",
+    "description": "搜索Clash订阅链接，body=\"port: 7890\" && body=\"socks-port: 7891\" && body=\"allow-lan: true\"",
+    "logo": "https://toolb.cn/favicon/fofa.info"
+   },
+   {
+    "title": "自建节点",
+    "url": "http://192.168.10.251:13002/",
+    "lanUrl": "",
+    "description": "Cloudflare等",
+    "logo": ""
+   },
+   {
+    "title": "EDtunnel",
+    "url": "https://edtunnel-1g9.pages.dev/bestip/5c11d0d4-6b9d-499e-9d27-5b9b13e87002",
+    "lanUrl": "https://url.v1.mk/sub?target=clash&url=https%3A%2F%2Fedtunnel-1g9.pages.dev%2Fsub%2F5c11d0d4-6b9d-499e-9d27-5b9b13e87002&config=https%3A%2F%2Fraw.githubusercontent.com%2FACL4SSR%2FACL4SSR%2Fmaster%2FClash%2Fconfig%2FACL4SSR_Online_Full_AdblockPlus.ini&include=&exclude=&emoji=true&list=false&sort=true&udp=true&scv=true&append_type=true&fdn=true&expand=false&classic=true",
+    "description": "CF 另一自建",
+    "logo": "https://cdn.jsdelivr.net/gh/6Kmfi6HP/EDtunnel@refs/heads/main/image/logo.png"
+   },
+   {
+    "title": "汇聚订阅",
+    "url": "https://cf-workers-sub-43i.pages.dev/lyqnihao",
+    "lanUrl": "https://github.com/lyqnihao/proxy/blob/main/cmliu/ACL4SS/my_Online_Full_MultiMode.ini",
+    "description": "原链+规则",
+    "logo": "https://dash.cloudflare.com/favicon.ico"
+   },
+   {
+    "title": "勇哥新版无KV",
+    "url": "https://123456.lyqnihao.dpdns.org/lyqnihao",
+    "lanUrl": "https://dash.cloudflare.com/428498ad1dac38b65eb718fa878fbd30/workers/services/view/frosty-tooth-a62e/production/settings",
+    "description": "workers新版，无KV，但目前不通",
+    "logo": "https://dash.cloudflare.com/favicon.ico"
+   },
+   {
+    "title": "CF自建",
+    "url": "https://am-cf-tunnel.lyqnihao.dpdns.org/lyqnihao",
+    "lanUrl": "https://am-cf-tunnel-eey.pages.dev/lyqnihao",
+    "description": "pages版",
+    "logo": "https://dash.cloudflare.com/favicon.ico"
+   },
+   {
+    "title": "CF自建~workers",
+    "url": "https://cloudflare-vless-trojan.lyqnihao.workers.dev/86c50e3a-5b87-49dd-bd20-03c7f2735e48",
+    "lanUrl": "https://edgetunnel-cmliu.lyqnihao.workers.dev/admin",
+    "description": "Cloudflare-workers/pages-vless代理脚本 V25.5.4",
+    "logo": ""
+   },
+   {
+    "title": "公益VPN app",
+    "url": "http://192.168.10.251:13002/",
+    "lanUrl": "",
+    "description": "app软件",
+    "logo": ""
+   },
+   {
+    "title": "小火箭VPN",
+    "url": "https://rktun.co/",
+    "lanUrl": "",
+    "description": "",
+    "logo": "https://rktun.co/_astro/favicon.DTNvFUDK.ico"
+   },
+   {
+    "title": "安易加速器",
+    "url": "https://www.ayay.one/",
+    "lanUrl": "",
+    "description": "",
+    "logo": "https://www.ayay.one/img/logo/ico.png"
+   },
+   {
+    "title": "绿茶VPN",
+    "url": "https://www.lvcha.org/",
+    "lanUrl": "https://t.me/lvchavpn",
+    "description": "",
+    "logo": "https://www.lvcha.org/assets/favicon.ico"
+   },
+   {
+    "title": "快走VPN",
+    "url": "https://letsgovpn.com/",
+    "lanUrl": "https://github.com/Pawdroid/LetsGoVPN",
+    "description": "",
+    "logo": "https://letsgovpn.com/logo.png"
+   },
+   {
+    "title": "安心加速器",
+    "url": "https://www.axjsq.com/",
+    "lanUrl": "https://t.me/axjsq",
+    "description": "永久免费,全球专线加速",
+    "logo": "https://www.axjsq.com/v1/file/icon/seo/cdc3fff6-6034-46fb-8ef3-1746e374d4fc.png"
+   },
+   {
+    "title": "垃圾VPN",
+    "url": "https://itmanager.top/",
+    "lanUrl": "",
+    "description": "号称多平台免费",
+    "logo": "https://itmanager.top/assests/icon.PNG"
+   },
+   {
+    "title": "飞轮",
+    "url": "https://fl6699.com/",
+    "lanUrl": "",
+    "description": "免费永不掉线的VPN",
+    "logo": "https://fl6699.com/assets/favicon.ico"
+   },
+   {
+    "title": "给梨加速器",
+    "url": "https://www.geilijiasu.com/",
+    "lanUrl": "",
+    "description": "只Windows端，永久免费，专线加速。",
+    "logo": "https://www.geilijiasu.com/favicon/logo.png"
+   },
+   {
+    "title": "Ozc ID共享号",
+    "url": "https://id.ozc.me/",
+    "lanUrl": "",
+    "description": "时有时无",
+    "logo": "https://cryptologos.cc/logos/bitcoin-btc-logo.png?v=032"
+   },
+   {
+    "title": "免费共享小火箭账号",
+    "url": "https://ccbaohe.com/appleID/",
+    "lanUrl": "",
+    "description": "美区小火箭",
+    "logo": "https://ccbaohe.com/favicon.ico"
+   },
+   {
+    "title": "小火箭共享账号",
+    "url": "https://id.bocchi.vip/",
+    "lanUrl": "",
+    "description": "",
+    "logo": "https://id.bocchi.vip/assets/ShadowRocket-BVI7XAw_.png"
+   },
+   {
+    "title": "爱辽",
+    "url": "https://ids.ailiao.eu/",
+    "lanUrl": "",
+    "description": "最新免费共享小火箭账号",
+    "logo": "https://ids.ailiao.eu/logo.svg"
+   },
+   {
+    "title": "已挂待考",
+    "url": "http://192.168.10.10:3002/",
+    "lanUrl": "",
+    "description": "",
+    "logo": ""
+   },
+   {
+    "title": "Subscription Convert",
+    "url": "https://convert.imgki.com/",
+    "lanUrl": "",
+    "description": "订阅转换",
+    "logo": "https://convert.imgki.com/img/icons/apple-touch-icon-152x152.png"
+   },
+   {
+    "title": "CF 订阅管理面板",
+    "url": "https://new.ssdxz.cn/",
+    "lanUrl": "",
+    "description": "公益订阅",
+    "logo": "https://new.ssdxz.cn/favicon.ico"
+   },
+   {
+    "title": "Helium Network-氦网",
+    "url": "http://pcdn.giize.com:8011/#/dashboard",
+    "lanUrl": "https://t.me/helium_network_group",
+    "description": "每月可用延期码续订，100G",
+    "logo": "https://cdn5.cdn-telegram.org/file/FK5-17y-UvZQsS0wy_lAmxcAD0COcZl4zpMBmuwfttes2Iqxes8fCv9X3hiMsADOSDgBeuULKTu4PnaqaU3fgm5rHWMqy7KDb8-b-3lT9mxuB6Jh4A5hGzGZdULx0cjzXKki3n3bwK3HjIqA9JVYuaNAaxlqF2JnUpbLSY11OzgZUqslrmzwHSZnyqzgz2VitY1eSgFapSOTSyKLTZaFiFanarbw4ftQE4BrB3PrvVau8F237g-aVKkqvdtb1jKLYVIOrqByl0T-gR4eQRrdPhfsulnDlfvd3zBpIlDPOXkv8gQA6RLxqPF6MJBv0ec3LGYKeaT7VCCPQsb0Ygxwbg.jpg"
+   },
+   {
+    "title": "漏网之鱼",
+    "url": "https://daohang.dwqtvanvkm.store/",
+    "lanUrl": "https://t.me/bcXtdO28",
+    "description": "每月1T，无限续订。https://github.com/louwangzhiyu001/louwangzhiyu",
+    "logo": "https://weihu.kbtydzhodr.store/fish.svg"
+   },
+   {
+    "title": "白嫖机场",
+    "url": "https://白嫖机场.ink/#/dashboard",
+    "lanUrl": "",
+    "description": "500G，可能长期，待定",
+    "logo": "https://白嫖机场.ink/images/logo.png"
+   },
+   {
+    "title": "迅蜂 VPN",
+    "url": "https://quickbeevpn.com/zh-CN",
+    "lanUrl": "",
+    "description": "专业网络加速器 | 安全稳定的全球VPN代理服务",
+    "logo": "https://quickbeevpn.com/logo.svg"
+   },
+   {
+    "title": "公益网络.com",
+    "url": "https://gy777.xyz/#/dashboard",
+    "lanUrl": "https://xn--55qw42gdrfmna.com/",
+    "description": "1T，https://t.me/gywl888",
+    "logo": "https://cdn4.cdn-telegram.org/file/QB7Q6D1frRmxIt2T8NoFOHQH7YpQWjPfGWkUiV_uv6dbKVJi3Z7LnSm_pQMI08rP8SJhA4GfuGL-aEzS-yAcXS9zGDUMwFILZoafjhSvcTP5e1RVCDAtXUKn-Br0vZzMghcVJjO6ds5vW-gzPjetP5DD6viBwdqvhtq58jfcDJY76u-UpJ4dDL6slTg3Z2lKPt4bcUZ63hcwyMVTIGAkR57IO8EqZ93ZG1344DHLJx0rDajZFjDuc9-mBktJbZlmWcRgR-285LW6jnAtI8aR9QX0nJMLylNLkJE5Vy-tUz8DUyhGs26e1PUH11OtOiOFrRE2a1CkJ5A1RZi6gx12rA.jpg"
+   },
+   {
+    "title": "十分机场",
+    "url": "https://十分机场.com/#/dashboard",
+    "lanUrl": "",
+    "description": "100G，可能每月自动重置，未定",
+    "logo": ""
+   },
+   {
+    "title": "EMO",
+    "url": "https://vpn.emoyyds.top/#/dashboard",
+    "lanUrl": "https://t.me/emovpn",
+    "description": "TG 优惠码 续订，每月300G，视频站https://mv.emovpn.xyz/",
+    "logo": "https://cdn5.cdn-telegram.org/file/Hw9DNWMn3XNNrqZQH0rYTdTsYXC0MenpiLdbj4eqeF5_1kmPnJKyD_bZ36wwELl6tiq4VGfujIhAjnYBUB3H-oSvYK_jk2z-gVUosuytVsO_v_b9qzKl7XvcPxcmrQVgcZTKz7T7_3CWTa4RgOEvrGWLqQOQwryuGX0P8VQv-uLSeIj1K6WlHxlLXc7gH8Kltybc4ty-KIMcaQkzw1FOIi97hCg8qmW_1ibkEmkrE9OrYyZeRKNI8ZhhsDlxzQK84OH57yuwwXPqEBt5i184WJ9ZPbNM8cy-c4zRAEQxFYugLGP6nlpXhYi8MWJjlAUJ_UdnWb4sKvgvrng5sefmCg.jpg"
+   },
+   {
+    "title": "测试中",
+    "url": "http://192.168.10.10:3002/",
+    "lanUrl": "",
+    "description": "",
+    "logo": ""
+   },
+   {
+    "title": "手搓VLESS节点生成器",
+    "url": "https://sub.cndyw.ggff.net/",
+    "lanUrl": "https://github.com/gslege/CloudflareIP",
+    "description": "",
+    "logo": "https://ip.cloudip.ggff.net/favicon.ico"
+   },
+   {
+    "title": "迷雾通",
+    "url": "https://geph.io/zhs",
+    "lanUrl": "https://github.com/geph-official",
+    "description": "",
+    "logo": "https://geph.io/favicon.png"
+   },
+   {
+    "title": "代理工具箱 Toolbox",
+    "url": "https://www.haitunt.org/app.html",
+    "lanUrl": "",
+    "description": "各种代理工具和规则集",
+    "logo": "https://www.haitunt.org/apple-touch-icon.png"
+   },
+   {
+    "title": "OpenRung — 自由访问开放互联网",
+    "url": "https://openrung.org/zh/#download",
+    "lanUrl": "",
+    "description": "没有广告、没有订阅、也没有付费高级版。OpenRung 基金会是美国 501(c)(3) 非营利组织，美国纳税人的捐赠可在法律允许的范围内抵税。",
+    "logo": "https://openrung.org/openrung-mark.svg"
    }
   ]
  }

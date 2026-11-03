@@ -5,7 +5,7 @@
 > **主部署方式：Cloudflare（Worker + KV）** —— 一个域名同时承载前端与 `/api/data` 接口，实现**多端实时同步**、**访问密码锁**、**坚果云每日定时备份**。
 > 没有 Cloudflare 后端时自动降级为**纯本地存储**（localStorage），导入/导出/重置照常可用，仅关闭云端同步与备份；但部署在无后端环境（GitHub Pages / 任意静态托管 / 直接打开）时，仍可开启**本地访问密码**（首次打开设置，本机加密保护）。
 
-当前版本：**v1.2.2**
+当前版本：**v1.3.1**
 
 ## 功能特性
 
@@ -19,7 +19,7 @@
 - **分类与卡片均可排序**：桌面端直接拖拽；任意端（含手机）也可用右键菜单**上移/下移**。分类支持右键重命名、添加站点、删除。
 - **左侧可折叠分类树**：点击切换分类、显示"全部站点"，固定分类带"固定"标记，窄屏自动收纳。
 - **增删改**：页面按钮即可完成（+分类、+添加站点、编辑、删除），数据自动保存；
-  **导出可选格式**（Sun-Panel JSON / 浏览器 HTML 书签），**导入自动识别**本应用 JSON、**Sun-Panel 备份（含 v1.x 与 v2.x，v2 的 url/lanUrl/图标位于 `cardData` 内也能正确提取；可直接上传 `.zip` 压缩包，自动解压读取内部 config.json，无需手动解压）**、Chrome/Edge/Firefox 书签 HTML 三种来源。
+  **导出可选格式**（Sun-Panel JSON / 浏览器 HTML 书签），**导入自动识别**本应用 JSON、**Sun-Panel v1.x 备份（可直接上传 `.zip` 压缩包，自动解压读取内部 config.json，无需手动解压）**、Chrome/Edge/Firefox 书签 HTML 三种来源。（注：Sun-Panel v2 导出格式存疑，兼容性待验证，暂不主推）
 - **重置**：清空所有自建/导入数据，**只保留「功能工具」一个分组**（含 IP 监控、日历时钟两个功能卡及其网络检测站点），回到干净的初始状态。
 - **云端同步与访问控制（Cloudflare 为主）**：顶部「管理」按钮展开区统一收纳导入/导出/重置、本地密码与同步状态；接入 Cloudflare KV 后多端实时同步（前端经同域 `/api/data` 读写，自动一致）；可设访问密码锁（仿 Sun-Panel，仅密码、本机可记住）；支持坚果云 WebDAV 每日定时备份（详见「部署 → 工作原理」）。无 Cloudflare 后端时自动降级为本地存储，但仍可在「管理 → 本地访问密码」开启**本机密码锁**（SHA-256 哈希存本地，首次打开设置、可跳过、可记住）。
 - **字段与 Sun-Panel 统一**：标签的「描述信息」对应 Sun-Panel 的 `description` 字段，导出即 Sun-Panel 兼容格式，可直接平移回 Sun-Panel。
@@ -84,6 +84,8 @@ sun-nav/
 | v1.2.0 | 2026-11-03 | **多端同步与访问控制**：「管理」按钮展开区收纳导入/导出/重置；Cloudflare KV 云端实时同步；可选访问密码锁；坚果云 WebDAV 每日北京时间 09:00 定时备份；变量名大小写兼容；无后端时自动降级本地存储 |
 | v1.2.1 | 2026-11-03 | **字段与 Sun-Panel 统一**：标签「介绍」改为「描述信息」，内部字段 `desc` 统一为 `description`（导出即 Sun-Panel 兼容，旧数据自动迁移）；**重构 Cloudflare 部署**：`wrangler.toml` + `worker.js` 移到子目录根，用 `[assets]` 让前端与 `/api/data` 同域一次性部署；新增 GitHub Actions「Cloudflare 自动部署」工作流并修正「Pages」工作流（须放仓库根 `.github/workflows/`）；README 以 Cloudflare 为主重写部署章节 |
 | v1.2.2 | 2026-11-03 | **修正部署认知 + 补本地密码锁**：修正两个工作流位置（移出子目录、放到仓库根 `notice/.github/workflows/`）；`deploy-pages.yml` 改为发布**整个 notice 仓库**（`path: '.'`），与"Cloudflare 只部署 sun-nav 子目录"分清；新增**纯前端本地访问密码锁**（无后端环境也能设密码：首次打开可设置/跳过、SHA-256 哈希存本地、可记住密码、管理面板可设置/修改/关闭），解决"非 Cloudflare 部署没有密码入口"的问题 |
+| v1.3.1 | 2026-11-03 | **修复重置清掉自定义标签 + 搜索多引擎 + 导入排序**：① **重置时保留「功能工具」内用户自己添加的标签**——`buildResetData` 改为优先采用现有「功能工具」分组（含自定义标签），仅补足默认组件（IP监测/日历时钟），不再因重置而清空用户内容；② **搜索多选引擎**——逐个打开，浏览器只放行首个弹窗，被拦截的其余引擎改为右上角可点击链接浮层，确保都能打开；③ 导入模式「覆盖」移至最后，默认仍为「合并去重」 |
+| v1.3.0 | 2026-11-03 | **导入默认改合并 + 导出命名规范化**：导入模式**默认改为"合并去重"**（原为"覆盖"），修复"导入其它备份时现有分类/标签被整体替换丢失"的问题（如「功能工具」分类下的自定义标签在导入后消失）；导出文件命名调整为 `SunNav-Data<时间戳>.SunPanel.json`，与 Sun-Panel 导出风格一致、便于存储区分。**版本号跳过 v1.2.3 / v1.2.4**：该两版为 Sun-Panel v2 导入的试探性修改，因 v2 导出本身存疑、暂不确定导入是否有误，故废弃不用 |
 
 ## 部署
 
@@ -208,7 +210,8 @@ python3 tools/prune-packages.py --list     # 打印当前保留清单
 
 | 版本 | 下载链接 |
 | --- | --- |
-| v1.2.2（最新） | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.2.2.zip?sharecode=L6MHTSDGZ2 |
+| v1.3.1（最新） | 本地包 `sun-nav-v1.3.1.zip`（部署方式同 v1.2.2：Cloudflare 用 Actions 自动部署 sun-nav 子目录；GitHub Pages 发布整个 notice 仓库） |
+| v1.2.2 | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.2.2.zip?sharecode=L6MHTSDGZ2 |
 | v1.2.1 | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.2.1.zip?sharecode=L6MHTSDGZ2 |
 | v1.2.0 | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.2.0.zip?sharecode=L6MHTSDGZ2 |
 | v1.1.8 | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.1.8.zip?sharecode=L6MHTSDGZ2 |
