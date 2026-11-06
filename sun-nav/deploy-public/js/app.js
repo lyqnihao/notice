@@ -3,7 +3,7 @@
 'use strict';
 
 /* ---------- 版本号（侧栏底部展示，修改时同步 README / data.js 头部注释） ---------- */
-var APP_VERSION = 'v1.3.1';
+var APP_VERSION = 'v1.3.2';
 /* 重置后保留的固定功能分组名 */
 var TOOL_GROUP_TITLE = '功能工具';
 
@@ -558,6 +558,7 @@ function hideMenu() { menu.classList.add('hidden'); menuCtx = null; }
 document.addEventListener('click', hideMenu);
 document.addEventListener('scroll', hideMenu, true);
 window.addEventListener('resize', hideMenu);
+window.addEventListener('resize', applyResponsiveSidebar);
 
 /* ---------- 拖拽排序：卡片 ---------- */
 var dragCard = null;
@@ -879,7 +880,11 @@ function toBookmarksHtml(groups) {
     L.push('    <DT><H3>' + escAttr(g.title) + '</H3>');
     L.push('    <DL><p>');
     items.forEach(function (it) {
-      L.push('        <DT><A HREF="' + escAttr(it.url || '') + '">' + escAttr(it.title || '') + '</A>');
+      // 一个标签可能同时有外网(url)与内网(lanUrl)两个地址，拆成多条超链接，
+      // 以「标题（外网）」「标题（内网）」区分，避免通用 HTML 导出丢失地址
+      if (it.url) L.push('        <DT><A HREF="' + escAttr(it.url) + '">' + escAttr((it.title || '') + '（外网）') + '</A>');
+      if (it.lanUrl) L.push('        <DT><A HREF="' + escAttr(it.lanUrl) + '">' + escAttr((it.title || '') + '（内网）') + '</A>');
+      if (!it.url && !it.lanUrl) L.push('        <DT><A HREF="">' + escAttr(it.title || '') + '</A>');
     });
     L.push('    </DL><p>');
   });
@@ -917,9 +922,19 @@ function mergeGroups(existing, incoming) {
     for (var i = 0; i < out.length; i++) if (out[i].title === ig.title) { match = out[i]; break; }
     if (match) {
       var keys = {};
-      match.items.forEach(function (it) { keys[dedupKey(it)] = 1; });
+      match.items.forEach(function (it) { keys[dedupKey(it)] = it; });
       ig.items.forEach(function (it) {
-        if (!keys[dedupKey(it)]) { match.items.push(it); keys[dedupKey(it)] = 1; }
+        var key = dedupKey(it);
+        if (keys[key]) {
+          // 同名同链接：补全省缺字段（如内网地址 lanUrl），避免合并时丢失数据
+          var ex = keys[key];
+          ['url', 'lanUrl', 'description', 'logo'].forEach(function (f) {
+            if (!ex[f] && it[f]) ex[f] = it[f];
+          });
+        } else {
+          match.items.push(it);
+          keys[key] = it;
+        }
       });
     } else {
       out.push(ig);
@@ -965,7 +980,25 @@ function parseBookmarkDl(dl, groups, parent) {
     var a = e.querySelector('a[href]');
     if (a) {
       var url = a.getAttribute('href') || '';
-      if (url) cur.items.push({ title: (a.textContent || '').trim() || url, url: url });
+      if (!url) continue;
+      var raw = (a.textContent || '').trim() || url;
+      // 识别「标题（外网）」/「标题（内网）」后缀，合并为同一标签的多个地址
+      var mm = raw.match(/^(.*?)\s*[（(](外网|内网)[)）]\s*$/);
+      var baseTitle, field;
+      if (mm) { baseTitle = mm[1].trim(); field = (mm[2] === '内网') ? 'lanUrl' : 'url'; }
+      else { baseTitle = raw; field = 'url'; }
+      var exist = null;
+      for (var k = 0; k < cur.items.length; k++) {
+        if (cur.items[k].title === baseTitle) { exist = cur.items[k]; break; }
+      }
+      if (exist) {
+        if (!exist[field]) exist[field] = url;
+        else if (!exist.url) exist.url = url;
+      } else {
+        var nb = { title: baseTitle, url: '', lanUrl: '', description: '', logo: '' };
+        nb[field] = url;
+        cur.items.push(nb);
+      }
     }
   }
 }
@@ -1432,6 +1465,13 @@ function renderCalendar(cal, now) {
 }
 
 /* ---------- 初始化 ---------- */
+/* 响应式侧边栏：手机版（窄屏）默认关闭菜单减少遮挡，电脑版默认开启 */
+function applyResponsiveSidebar() {
+  var sb = $('sidebar');
+  if (!sb) return;
+  if (window.innerWidth <= 760) sb.classList.add('mobile-hide');
+  else sb.classList.remove('mobile-hide');
+}
 async function init() {
   $('appVersion').textContent = APP_VERSION;
   try {
@@ -1444,6 +1484,7 @@ async function init() {
   } catch (e) {}
   renderEngines();
   setEngineHidden(window.innerWidth <= 760);   // 窄屏默认收起引擎选项，节省空间
+  applyResponsiveSidebar();                    // 窄屏默认关闭侧边栏菜单，电脑版默认开启
   await bootData();                            // 检测后端：Cloudflare KV 云端 或 本地降级
   renderTree();
   renderContent();

@@ -10,6 +10,18 @@
 #   CF_API_TOKEN      Cloudflare API Token（权限：Account/Worker Scripts 编辑 + 对应帐号/区域）
 #   KV_NAMESPACE_ID   本应用在 Cloudflare 建好的 KV 命名空间 ID（CI 会写进 wrangler.toml）
 # 说明：SITE_PASSWORD / WEBDAV_USER / WEBDAV_PASS 用 `wrangler secret`（见 README），不放这里。
+#
+# 【变量保护】CI 不写入任何 vars/secrets：这些只在 Cloudflare 控制台设置一次即可。
+#   deploy 必须带 --keep-vars：Wrangler 默认会用 wrangler.toml 的 [vars] 覆盖/删除
+#   控制台里手动设置的明文变量；加该参数后控制台额外设置的变量得以保留，
+#   Secret 类型则任何部署都不会删除（Cloudflare 官方行为）。
+#   不做「首次部署判断」：官方 --keep-vars 已能永久保护，无需 CI 探测 Worker 是否已存在。
+#
+# 修订记录（追加，不替换旧记录）
+#   rev.1  2026-11-03  初版：sed 注入 KV_NAMESPACE_ID + npx wrangler@latest deploy
+#   rev.2  2026-11-06  修复每次部署清空控制台已设置的 Variables：
+#                        deploy 改为 npx wrangler@4 deploy --keep-vars（锁定大版本，避免 @latest 行为漂移）；
+#                        明确 CI 不写入任何 vars/secrets，变量/密钥统一由控制台一次性设置。
 
 name: Deploy Sun Nav to Cloudflare
 
@@ -43,8 +55,8 @@ jobs:
         run: |
           sed -i "s/REPLACE_WITH_YOUR_KV_NAMESPACE_ID/${{ secrets.KV_NAMESPACE_ID }}/" wrangler.toml
 
-      - name: 部署到 Cloudflare
-        run: npx wrangler@latest deploy
+      - name: 部署到 Cloudflare（保留控制台已设置的变量/密钥）
+        run: npx wrangler@4 deploy --keep-vars
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}

@@ -15,6 +15,9 @@ binding = "KV"
 id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
 
 # 非敏感配置（也可改成 secret，见 README）。变量名大小写均可，Worker 内部不区分。
+# ⚠️ CI 用 `wrangler deploy --keep-vars` 部署：控制台里【额外】手动添加的变量/Secret 不会被删除；
+#    但本段【已声明】的两个变量每次仍以本文件为准。若想完全由控制台接管，删除下面两行，
+#    并在控制台补 WEBDAV_URL（否则定时备份不工作）。
 [vars]
 WEBDAV_URL  = "https://dav.jianguoyun.com/dav/"
 WEBDAV_PATH = "/sun-nav"
