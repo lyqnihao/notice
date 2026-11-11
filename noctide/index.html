@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#05060a">
+<title>夜潮 NOCTIDE · 深夜片库</title>
+<meta name="description" content="夜潮 NOCTIDE —— 深夜片库，几十万部在线看，点开即播">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<div class="bg-glow" aria-hidden="true"></div>
+
+<header class="hd" id="hd">
+  <div class="wrap hd-in">
+    <a class="brand" href="#/" id="brandBtn" aria-label="回到首页">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2.5c1.6 3.4 4.4 5.6 6.6 8.6A7.6 7.6 0 0 1 12 22a7.6 7.6 0 0 1-6.6-10.9c2.2-3 5-5.2 6.6-8.6Z"/>
+          <path d="M12 18.5a3 3 0 0 0 2.2-5"/>
+        </svg>
+      </span>
+      <span class="brand-txt"><b>夜潮</b><i>NOCTIDE</i></span>
+    </a>
+
+    <form class="search" id="searchForm" role="search">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+      </svg>
+      <input id="q" type="search" placeholder="搜片名 / 番号 / 关键词" autocomplete="off" aria-label="搜索">
+      <button type="button" class="clr" id="clr" aria-label="清空" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </form>
+
+    <div class="hd-act">
+      <button class="icon-btn" id="menuBtn" title="收起/展开分类" aria-label="收起或展开分类" aria-expanded="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <nav class="cats" id="cats" aria-label="分类导航"><div class="cats-in" id="catsIn"></div></nav>
+</header>
+
+<div class="wrap toolbar">
+  <div class="tabs" id="tabs" role="tablist">
+    <button class="tab on" data-view="home" role="tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+      <span>首页</span>
+    </button>
+    <button class="tab" data-view="fav" role="tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-7.5-9.6A4.4 4.4 0 0 1 12 8a4.4 4.4 0 0 1 7.5 2.9c0 5-7.5 9.6-7.5 9.6Z"/></svg>
+      <span>收藏</span><em id="favN" hidden>0</em>
+    </button>
+    <button class="tab" data-view="hist" role="tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>
+      <span>历史</span>
+    </button>
+    <button class="tab" data-act="random">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="5"/><path d="M8.5 8.5h.01M15.5 8.5h.01M15.5 15.5h.01M8.5 15.5h.01M12 12h.01"/>
+      </svg>
+      <span>随机</span>
+    </button>
+  </div>
+
+  <button class="filter-btn" id="filterBtn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+    <span>筛选</span><em id="fCount" hidden></em>
+  </button>
+</div>
+
+<main id="app" class="wrap" role="main"></main>
+
+<footer class="ft">
+  <div class="wrap ft-in">
+    <span class="ft-brand">夜潮 · NOCTIDE</span>
+    <span class="ft-note">资源来自网络采集，仅供个人学习交流</span>
+  </div>
+</footer>
+
+<!-- 筛选面板 -->
+<div class="sheet-mask" id="fMask" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-label="筛选">
+    <div class="sheet-hd">
+      <h3>筛选</h3>
+      <button class="pclose" id="fClose" aria-label="关闭">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="sheet-body" id="fBody"></div>
+    <div class="sheet-ft">
+      <button class="btn-ghost" id="fReset">重置</button>
+      <button class="btn-solid" id="fApply">看结果</button>
+    </div>
+  </div>
+</div>
+
+<!-- 播放器浮层 -->
+<div class="player-mask" id="pmask" hidden>
+  <div class="player-box" role="dialog" aria-modal="true" aria-label="视频播放">
+    <div class="player-hd">
+      <h3 id="pTitle">—</h3>
+      <button class="pclose" id="pFav" aria-label="收藏" title="收藏">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-7.5-9.6A4.4 4.4 0 0 1 12 8a4.4 4.4 0 0 1 7.5 2.9c0 5-7.5 9.6-7.5 9.6Z"/></svg>
+      </button>
+      <button class="pclose" id="pclose" aria-label="关闭播放器">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="player-video">
+      <video id="video" controls playsinline preload="none"></video>
+      <div class="pfall" id="pfall" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+          <circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/>
+        </svg>
+        <p id="pfWhy">这条线路暂时打不开</p>
+        <small id="pfTip">片源服务器的问题，换一集或换一部试试</small>
+        <div class="pf-btns">
+          <button id="pfSwitch" type="button" hidden>换条线路</button>
+          <a id="pfLink" href="#" target="_blank" rel="noopener">用外部播放器打开</a>
+        </div>
+      </div>
+    </div>
+    <div class="p-meta" id="pMeta"></div>
+    <div class="eps" id="eps"></div>
+  </div>
+</div>
+
+<!-- 轻提示 -->
+<div class="toast" id="toast" hidden></div>
+
+<script src="/hls.min.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
