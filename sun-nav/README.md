@@ -2,12 +2,12 @@
 
 基于 Sun-Panel 风格逆向实现的**个人网站导航页**。
 
-> **主部署方式：Cloudflare（Worker + KV）** —— 一个域名同时承载前端与 `/api/data` 接口，实现**多端实时同步**、**访问密码锁**、**坚果云每日定时备份**。
+> **主部署方式：Cloudflare（Worker + KV）** —— 一个域名同时承载前端与 `/api/data`、`/api/meta` 接口，实现**多端实时同步**、**自动获取站点信息**、**访问密码锁**、**坚果云每日定时备份**。
 > 没有 Cloudflare 后端时自动降级为**纯本地存储**（localStorage），导入/导出/重置照常可用，仅关闭云端同步与备份；但部署在无后端环境（GitHub Pages / 任意静态托管 / 直接打开）时，仍可开启**本地访问密码**（首次打开设置，本机加密保护）。
 >
 > ⚠️ **数据层随部署方式而变，且各部署相互独立**：只有 **Cloudflare Worker + KV** 部署具备**服务端数据库**（KV 键值库）与多端同步；在线预览站、GitHub Pages 等纯静态部署**没有服务端数据库**，数据存各自浏览器 localStorage，彼此不共享、也不跨设备同步。详见下方「数据层与部署独立性」。
 
-当前版本：**v1.3.2**
+当前版本：**v1.4.0**
 
 ## 功能特性
 
@@ -25,6 +25,7 @@
 - **重置**：清空所有自建/导入数据，**只保留「功能工具」一个分组**（含 IP 监控、日历时钟两个功能卡及其网络检测站点），回到干净的初始状态。
 - **云端同步与访问控制（Cloudflare 为主）**：顶部「管理」按钮展开区统一收纳导入/导出/重置、本地密码与同步状态；接入 Cloudflare KV 后多端实时同步（前端经同域 `/api/data` 读写，自动一致）；可设访问密码锁（仿 Sun-Panel，仅密码、本机可记住）；支持坚果云 WebDAV 每日定时备份（详见「部署 → 工作原理」）。无 Cloudflare 后端时自动降级为本地存储，但仍可在「管理 → 本地访问密码」开启**本机密码锁**（SHA-256 哈希存本地，首次打开设置、可跳过、可记住）。
 - **字段与 Sun-Panel 统一**：标签的「描述信息」对应 Sun-Panel 的 `description` 字段，导出即 Sun-Panel 兼容格式，可直接平移回 Sun-Panel。
+- **自动获取站点信息（v1.4.0）**：添加站点时**只填网址**，点「⚡ 自动获取」即自动补齐名称 / 描述 / Logo。**三级降级**：A 同源 Worker `/api/meta`（Cloudflare 部署，服务端抓取，带站点密码校验与 SSRF 防护）→ B 公共元数据 / 代理服务（GitHub Pages 等纯静态部署兜底）→ C favicon 多源 `<img>` 探测（任何环境可用，通常至少能拿到图标）。**只写空白字段、绝不覆盖已填内容**，所有字段始终开放可手改、不自动保存；自动填入项带高亮标记，一编辑即消失。
 - **版本号显示**：左侧分类树底部、"收起分类树"按钮下方一行显示当前代码版本号，随版本同步更新。
 - **固定功能卡**（"功能工具"分类，不可随数据丢失）：
   - **IP 与连通性测试**：自包含实现（参考 ip.skk.moe），实时显示公网 IP/归属地/ISP，并对百度/Google/GitHub/OpenAI/Cloudflare/YouTube 等主要站点做连通性探测（显示延迟），每 30 秒自动刷新。
@@ -46,9 +47,10 @@ sun-nav/
 ├─ css/style.css        样式（深/浅主题变量）
 ├─ js/app.js            逻辑（状态、渲染、搜索、右键菜单、拖拽、widget、云端同步）
 ├─ js/data.js           站点数据（完整版，含本地/自建使用）
-├─ worker.js            Cloudflare Worker：/api/data 读写 KV + 密码锁 + 每日定时备份
+├─ worker.js            Cloudflare Worker：/api/data 读写 KV + /api/meta 元数据抓取 + 密码锁 + 每日定时备份
 ├─ wrangler.toml        Cloudflare 部署配置（静态资源目录 + KV 绑定 + 定时触发器）
 ├─ tools/prune-packages.py  代码包留档清理（X/Y 各留 3、Z 留 5）
+├─ test/                测试版归档（独立构建，经 GitHub Pages 预览；不参与正式版 / Cloudflare 部署）
 └─ deploy-public/       公开部署版（已剔除敏感分类，仅用于发布公网；内含代码包 zip）
 ```
 
@@ -77,6 +79,7 @@ sun-nav/
 
 | 日期 | 部署地址 | 说明 |
 | --- | --- | --- |
+| 2026-11-12 | https://af5216a4a1143e54e.app.workbuddy.host/?sharecode=L6MHTSDGZ2 | **v1.4.0 转正 + 建立测试版归档规则**：① 「自动获取站点信息」测试构建（v1.4.0-test.1）验证通过后**转正为 v1.4.0**，合并进正式版 `sun-nav/`；② **移除 Cloudflare Drop 专用交付物与文档**（Drop 为纯静态托管、无法运行 Worker `/api/meta`，不作为部署通道保留）；③ 归档规则：以后测试版在仓库 `sun-nav/` 下建 `test/` 目录推送，经 GitHub Pages 预览，不另开部署地址、不覆盖正式版；④ 本次测试版作为首个归档推入 `sun-nav/test/`。代码级更新，版本号 v1.4.0 |
 | 2026-11-07 | https://af5216a4a1143e54e.app.workbuddy.host/?sharecode=L6MHTSDGZ2 | **GitHub 连接器打通 + 清理历史残留 + 固化总记忆规则**：① GitHub 连接器重新授权成功，实测 `/user` = `lyqnihao`、`lyqnihao/notice` 具备 admin/push 权限，只读比对确认远端与本地 v1.3.2 完全一致；② **真实推送测试**：删除历史残留 `sun-nav/worker/`（早期旧版 Worker 结构，已迁至 `sun-nav/` 根、不参与部署），验证 clone→commit→push 全链路可用；③ 固化总记忆规则：每次修订回复开头直接给两个可点击链接、末尾询问是否更新 GitHub（确认后直推）、commit summary 用版本号/非代码级按原因提炼。属文档与仓库维护，功能代码未改，版本号保持 v1.3.2 |
 | 2026-11-07 | https://af5216a4a1143e54e.app.workbuddy.host/?sharecode=L6MHTSDGZ2 | **新增「数据层与部署独立性」说明**：明确服务端数据库 / 云端同步（Cloudflare KV）**仅属 Cloudflare 部署**，workbuddy.host 在线预览站与 GitHub Pages 等纯静态部署为**各自独立的浏览器本地存储**、无服务端数据库、不跨设备同步；概览追加醒目提示，部署章节新增三方式对照表、判定方式与「各自独立」含义。属文档修订，功能代码未改，版本号保持 v1.3.2 |
 | 2026-11-06 | https://af5216a4a1143e54e.app.workbuddy.host/?sharecode=L6MHTSDGZ2 | **恢复原部署地址 + 修复 Cloudflare 变量被清空**：① 原地址仍可用，上一轮误判"被屏蔽"而更换 `appName` 属理解错误，已改回原 `appName` 重新部署、恢复原地址；② 「总要求」修正为**优先复用原地址、两个链接都写成可点击超链接，仅当链接确实被屏蔽才换新**；③ 修复 GitHub Actions 每次部署清空控制台已设 Variables 的问题：`deploy-cloudflare.yml` rev.2 改用 `wrangler@4 deploy --keep-vars` 并锁定大版本，CI 不写入任何 vars/secrets。v1.1.5–v1.3.2 代码包随恢复后的原地址上线并验证 200 |
@@ -84,6 +87,7 @@ sun-nav/
 
 | 版本 | 日期 | 说明 |
 | --- | --- | --- |
+| v1.4.0 | 2026-11-12 | **自动获取站点信息（由 v1.4.0-test.1 转正）**：① 添加站点表单新增「⚡ 自动获取」按钮，只填网址即自动补齐名称 / 描述 / Logo，**只写空白字段、不覆盖手填内容**，字段始终开放可改、不自动保存；② **三级降级** A 同源 `/api/meta`（服务端抓取 `<title>`/`description`/`og:*`/`link[rel=icon]`）→ B 公共代理并行竞速 → C favicon 多源探测；③ **Worker 新增 `/api/meta` 分支**，与 `/api/data` 一致校验 `SITE_PASSWORD`，内置 SSRF 防护（拒绝私网 / 云元数据 / 非 80·443 端口、逐跳校验重定向最多 3 跳、6s 超时、300KB 上限、过滤 `data:` 空图标）；④ 前端 A 级请求自动附带站点密码；⑤ 测试期修复 `extractMeta()` 混合正则吞掉 `<title>` 导致标题为空的 bug。v1.4.0-test.1 为测试构建版本号，正式版跳过不用 |
 | v1.3.2 | 2026-11-06 | **初始数据精简 + 响应式侧边栏 + 通用HTML多地址导出/导入**：① **初始部署默认数据只保留「功能工具」「测试中」「外网应用」三个分类**，其余 20 个分类清理（仅影响无本地存档时的首次 seed）；② **响应式侧边栏**——电脑版（宽屏）默认开启菜单，手机版（≤760px）打开时默认关闭减少遮挡（init 与 resize 时按宽度自动设置）；③ **通用 HTML（书签）导出**：一个标签同时有外网/内网地址时，拆成「标题（外网）」「标题（内网）」多条超链接避免丢失；**导入时**识别该后缀并合并回同一标签的多个地址，且合并去重时对同名同链接条目补全省缺字段（如 lanUrl） |
 | v1.3.1 | 2026-11-03 | **修复重置清掉自定义标签 + 搜索多引擎 + 导入排序**：① **重置时保留「功能工具」内用户自己添加的标签**——`buildResetData` 改为优先采用现有「功能工具」分组（含自定义标签），仅补足默认组件（IP监测/日历时钟），不再因重置而清空用户内容；② **搜索多选引擎**——逐个打开，浏览器只放行首个弹窗，被拦截的其余引擎改为右上角可点击链接浮层，确保都能打开；③ 导入模式「覆盖」移至最后，默认仍为「合并去重」 |
 | v1.3.0 | 2026-11-03 | **导入默认改合并 + 导出命名规范化**：导入模式**默认改为"合并去重"**（原为"覆盖"），修复"导入其它备份时现有分类/标签被整体替换丢失"的问题（如「功能工具」分类下的自定义标签在导入后消失）；导出文件命名调整为 `SunNav-Data<时间戳>.SunPanel.json`，与 Sun-Panel 导出风格一致、便于存储区分。**版本号跳过 v1.2.3 / v1.2.4**：该两版为 Sun-Panel v2 导入的试探性修改，因 v2 导出本身存疑、暂不确定导入是否有误，故废弃不用 |
@@ -193,11 +197,13 @@ Sun Nav 的**服务端数据库 / 云端同步不是所有部署都有**，而�
 
 | 部署方式 | 数据存哪 | 服务端数据库 | 多端 / 跨设备同步 | 密码锁 |
 | --- | --- | --- | --- | --- |
-| **Cloudflare Worker + KV**（主部署） | 服务端 **KV 键值数据库**（`env.KV` + `/api/data`） | ✅ 有 | ✅ 同一命名空间全端实时同步 | 服务端 `SITE_PASSWORD` |
+| **Cloudflare Worker + KV**（主部署） | 服务端 **KV 键值数据库**（`env.KV` + `/api/data`；另有 `/api/meta` 元数据抓取） | ✅ 有 | ✅ 同一命名空间全端实时同步 | 服务端 `SITE_PASSWORD`（`/api/data` 与 `/api/meta` 均校验） |
 | **workbuddy.host 在线预览**（纯静态托管） | 浏览器 **localStorage** | ❌ 无 | ❌ | 本地密码锁（仅本机） |
 | **GitHub Pages / 其它静态托管 / 直接打开 `index.html`** | 浏览器 **localStorage** | ❌ 无 | ❌ | 本地密码锁（仅本机） |
 
 **判定方式**：前端 `bootData()` 启动时会请求同源 `/api/data`——返回 `200`/`401` 说明存在 Cloudflare 后端，进入 KV 模式；返回 **`404`**（静态服务器没有这个接口）则自动降级为本地模式。站点「管理 → 同步状态」会显示"云端同步：已连接"或"本地存储"，可据此当场确认。
+
+「自动获取」同理：Cloudflare 部署走 **A**（`/api/meta` 服务端抓取，需站点密码，最完整）；纯静态部署下 A 返回 404 / HTML，自动降级 **B**（公共代理）+ **C**（favicon 探测），因此静态部署通常**至少能自动拿到 Logo**，名称/描述取决于第三方服务可用性。
 
 **「各自独立」的确切含义**：
 
@@ -248,11 +254,13 @@ Cloudflare 的 `SITE_PASSWORD` 由后端校验，只在部署到 Cloudflare 时�
 >   - **非代码级更新**（无新版本号，如文档修订、清理残留、部署/配置维护）：由助手**根据修订原因提炼一句中文 summary**，如 `清理历史残留：移除 sun-nav/worker/ 旧版 Worker 结构`、`文档：补充数据层与部署独立性说明`。
 > - 推送前先 `git status` 确认改动范围、只提交本次相关内容；推送后核对远端最新提交与文件状态，确认同步成功。
 
+> **【总要求·测试版归档】** 以后的测试版**不另开部署地址、不占用正式版地址**：在 GitHub 仓库 `sun-nav/` 目录下建 `test/` 子目录，把测试版构建推送到 `lyqnihao/notice` 的 `main`，由 GitHub Pages 发布整个仓库后可直接访问 `sun-nav/test/`。测试版与正式版 `sun-nav/` 根目录文件互不覆盖，且**不参与 Cloudflare Worker 部署**（`[assets]` 只取 `deploy-public/`）。测试版可保留自己的 `TEST` 标识与独立版本号（如 `v1.4.0-test.N`），便于区分。
+
 其他注意事项：
 
 - 部署前确认 `deploy-public/` 与根目录的 `index.html` / `css/style.css` / `js/app.js` 内容一致（差异应仅在 `js/data.js` 的公开版分类，以及 `deploy-public/` 内多出的代码包）。
 - 打包时用 `-x "*.zip"` 排除，避免代码包把自身打进去。
-- 升级版本号时同步修改：`js/app.js` 的 `APP_VERSION`、各文件头部注释、`README.md` 当前版本与版本记录表。
+- 升级版本号时同步修改：`js/app.js` 的 `APP_VERSION`、各文件头部注释、`README.md` 当前版本与版本记录表、**部署存档表的最新版链接**、代码包文件名。
 
 ### 代码包留档策略
 
@@ -277,13 +285,14 @@ python3 tools/prune-packages.py --list     # 打印当前保留清单
 ### 部署地址与存档
 
 - **部署超链接（在线预览，始终为最新版，可直接打开检查）**：https://af5216a4a1143e54e.app.workbuddy.host/?sharecode=L6MHTSDGZ2
-- **最新版代码包下载链接**：https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.3.2.zip?sharecode=L6MHTSDGZ2
+- **最新版代码包下载链接**：https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.4.0.zip?sharecode=L6MHTSDGZ2
 
 当前线上代码包存档（**最新版本在最前**）：
 
 | 版本 | 下载链接 |
 | --- | --- |
-| **v1.3.2（最新）** | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.3.2.zip?sharecode=L6MHTSDGZ2 |
+| **v1.4.0（最新）** | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.4.0.zip?sharecode=L6MHTSDGZ2 |
+| v1.3.2 | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.3.2.zip?sharecode=L6MHTSDGZ2 |
 | v1.3.1 | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.3.1.zip?sharecode=L6MHTSDGZ2 |
 | v1.3.0 | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.3.0.zip?sharecode=L6MHTSDGZ2 |
 | v1.2.2 | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.2.2.zip?sharecode=L6MHTSDGZ2 |
@@ -296,7 +305,7 @@ python3 tools/prune-packages.py --list     # 打印当前保留清单
 
 > 存档自 **v1.1.5** 起开始保留；更早版本未留存源码快照，无法补建。以上链接均已验证 HTTP 200、字节数与本地包一致。每次发版后本表会追加新版本链接（置于最前），被策略淘汰的版本同步移除。
 
-- **Cloudflare（主部署）**：按上方「部署」章节用 `wrangler deploy` 或 GitHub Actions 自动部署（前端 + `/api/data` 同域）。
+- **Cloudflare（主部署）**：按上方「部署」章节用 `wrangler deploy` 或 GitHub Actions 自动部署（前端 + `/api/data` + `/api/meta` 同域）。
 - **GitHub Pages**：`deploy-pages.yml` 已在仓库根 `.github/workflows/`，Settings → Pages → Source 选 GitHub Actions，推送即发布**整个 notice 仓库**。
 - **其它静态托管**：上传 `deploy-public/` 目录内全部文件即可。
 

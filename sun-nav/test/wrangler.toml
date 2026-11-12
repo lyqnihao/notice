@@ -1,0 +1,16 @@
+# Sun Nav 【测试版】独立部署配置（v1.4.0-test.1）
+# 用途：验证「输入网址自动获取名称/描述/Logo」功能，与正式版完全隔离。
+# - 独立 Worker 名：不会覆盖正式版 sun-nav
+# - 不接 KV、不设密码锁、不设定时备份；/api/data 返回 404，前端降级本地存储
+# - 仅新增 /api/meta 服务端抓取接口（含 SSRF 防护）
+
+name = "sun-nav-meta-test"
+main = "worker.js"
+compatibility_date = "2026-11-12"
+
+[assets]
+directory = "dist"
+binding = "ASSETS"
+
+# 说明：正式版的 [vars] / [[kv_namespaces]] / [triggers] / SITE_PASSWORD 等
+# 在本测试版一律不配置，避免任何误连或覆盖。

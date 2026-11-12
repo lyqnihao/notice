@@ -1,9 +1,9 @@
-/* ===== Sun Nav 导航页逻辑 v1.1.7 ===== */
+/* ===== Sun Nav 导航页逻辑 v1.4.0（自动获取站点信息） ===== */
 (function () {
 'use strict';
 
 /* ---------- 版本号（侧栏底部展示，修改时同步 README / data.js 头部注释） ---------- */
-var APP_VERSION = 'v1.3.2';
+var APP_VERSION = 'v1.4.0';
 /* 重置后保留的固定功能分组名 */
 var TOOL_GROUP_TITLE = '功能工具';
 
@@ -76,6 +76,239 @@ function faviconFor(url) {
     var u = new URL(url);
     return 'https://' + u.hostname + '/favicon.ico';
   } catch (e) { return ''; }
+}
+
+/* ================================================================
+ * 自动获取站点信息（v1.4.0）
+ * ----------------------------------------------------------------
+ * 三级降级，任一成功即填充；只写【空白】字段，绝不覆盖用户已填内容：
+ *   A  同源 Worker  /api/meta?url=   —— Cloudflare Worker 部署时，服务端抓取，最可靠
+ *   B  公共元数据 / 代理服务          —— 纯静态部署（GitHub Pages / 静态预览站等）时的兜底
+ *   C  favicon 多源 <img> 直连探测    —— 不受 CORS 限制，几乎总能拿到图标
+ * 所有字段始终开放可编辑；自动填入的字段加 .autofilled 标记，用户一改动即移除。
+ * ================================================================ */
+var META_TIMEOUT = 7000;
+var META_PROXIES = [
+  { name: 'microlink', type: 'microlink', url: function (u) { return 'https://api.microlink.io/?url=' + encodeURIComponent(u); } },
+  { name: 'whateverorigin', type: 'wrap', url: function (u) { return 'https://www.whateverorigin.org/get?url=' + encodeURIComponent(u); } },
+  { name: 'allorigins', type: 'html', url: function (u) { return 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u); } },
+  { name: 'codetabs', type: 'html', url: function (u) { return 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u); } }
+];
+
+function normalizeTargetUrl(raw) {
+  var s = String(raw || '').trim();
+  if (!s) return '';
+  if (!/^https?:\/\//i.test(s)) s = 'https://' + s.replace(/^\/+/, '');
+  try {
+    var u = new URL(s);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+    if (!u.hostname || u.hostname.indexOf('.') < 0) return '';
+    return u.href;
+  } catch (e) { return ''; }
+}
+
+function cleanMetaText(s) { return String(s || '').replace(/\s+/g, ' ').trim(); }
+
+function metaFromHtml(html, baseUrl) {
+  var out = { title: '', description: '', logo: '' };
+  try {
+    var doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
+    var pick = function (sel) {
+      var n = doc.querySelector(sel);
+      return n ? cleanMetaText(n.getAttribute('content')) : '';
+    };
+    var t = doc.querySelector('title');
+    out.title = t ? cleanMetaText(t.textContent) : '';
+    var ogTitle = pick('meta[property="og:title"]') || pick('meta[name="twitter:title"]');
+    if (ogTitle) out.title = ogTitle;
+    out.description = pick('meta[name="description"]') || pick('meta[property="og:description"]') || pick('meta[name="twitter:description"]');
+    var icon = doc.querySelector('link[rel~="icon"]') || doc.querySelector('link[rel="apple-touch-icon"]');
+    var href = icon ? cleanMetaText(icon.getAttribute('href')) : '';
+    if (!href) href = pick('meta[property="og:image"]');
+    if (href) { try { out.logo = new URL(href, baseUrl).href; } catch (e) {} }
+  } catch (e) {}
+  return out;
+}
+
+function metaFromText(text, type, baseUrl) {
+  if (type === 'microlink') {
+    try {
+      var j = JSON.parse(text);
+      if (j && j.status === 'success' && j.data) {
+        var d = j.data, logo = '';
+        if (d.logo) logo = (typeof d.logo === 'string') ? d.logo : (d.logo.url || '');
+        if (!logo && d.image) logo = (typeof d.image === 'string') ? d.image : (d.image.url || '');
+        return { title: cleanMetaText(d.title), description: cleanMetaText(d.description), logo: logo };
+      }
+    } catch (e) {}
+    return null;
+  }
+  if (type === 'wrap') {
+    try {
+      var w = JSON.parse(text);
+      if (w && typeof w.contents === 'string') return metaFromHtml(w.contents, baseUrl);
+    } catch (e) {}
+    return null;
+  }
+  return metaFromHtml(text, baseUrl);
+}
+
+function fetchMetaText(url, ms) {
+  var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  var timer = setTimeout(function () { try { ctrl && ctrl.abort(); } catch (e) {} }, ms || META_TIMEOUT);
+  var opts = { cache: 'no-store' };
+  if (ctrl) opts.signal = ctrl.signal;
+  return fetch(url, opts).then(function (r) {
+    clearTimeout(timer);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.text();
+  }, function (e) { clearTimeout(timer); throw e; });
+}
+
+/* A：同源 Worker 接口（Cloudflare 部署时可用，随请求带站点密码；纯静态部署返回 404/HTML 时自动跳过） */
+function tryWorkerMeta(target) {
+  var pw = (backend.mode === 'kv' && backend.password) ? ('&pw=' + encodeURIComponent(backend.password)) : '';
+  return fetchMetaText('/api/meta?url=' + encodeURIComponent(target) + pw, 8000).then(function (txt) {
+    var j = JSON.parse(txt);
+    if (j && j.ok) {
+      return { title: cleanMetaText(j.title), description: cleanMetaText(j.description),
+               logo: j.logo || '', source: '本站 Worker' };
+    }
+    return null;
+  }).catch(function () { return null; });
+}
+
+/* B：公共代理并行竞速，第一个给出有效结果者胜出 */
+function tryProxyMeta(target) {
+  return new Promise(function (resolve) {
+    var pending = META_PROXIES.length, done = false;
+    if (!pending) { resolve(null); return; }
+    META_PROXIES.forEach(function (p) {
+      fetchMetaText(p.url(target), META_TIMEOUT).then(function (txt) {
+        var m = metaFromText(txt, p.type, target);
+        if (m && (m.title || m.description || m.logo) && !done) {
+          done = true; m.source = p.name; resolve(m);
+        }
+      }).catch(function () {}).then(function () {
+        pending--;
+        if (pending === 0 && !done) resolve(null);
+      });
+    });
+  });
+}
+
+/* C：favicon 多源探测（<img> 加载不受 CORS 限制，302 会自动跟随） */
+function logoCandidates(target, hint) {
+  var host;
+  try { host = new URL(target).hostname; } catch (e) { return []; }
+  var list = [];
+  if (hint) list.push(hint);
+  list.push('https://' + host + '/favicon.ico');
+  list.push('https://favicon.im/' + host + '?larger=true');
+  list.push('https://api.faviconkit.com/' + host + '/64');
+  list.push('https://www.google.com/s2/favicons?domain=' + host + '&sz=64');
+  list.push('https://icons.duckduckgo.com/ip3/' + host + '.ico');
+  return list;
+}
+function probeLogo(list) {
+  return new Promise(function (resolve) {
+    if (!list.length) { resolve(''); return; }
+    var pending = list.length, done = false;
+    list.forEach(function (src) {
+      var img = new Image();
+      var timer = setTimeout(function () { finish(false); }, 4500);
+      function finish(ok) {
+        clearTimeout(timer);
+        img.onload = img.onerror = null;
+        if (done) return;
+        pending--;
+        if (ok && !done) { done = true; resolve(src); }
+        else if (pending === 0 && !done) { done = true; resolve(''); }
+      }
+      img.onload = function () { finish(img.naturalWidth >= 8); };
+      img.onerror = function () { finish(false); };
+      img.src = src;
+    });
+  });
+}
+
+/* 只填空白字段；返回被填充的字段中文名 */
+function applyMetaToForm(meta) {
+  var labels = { fTitle: '名称', fDesc: '描述信息', fLogo: 'Logo' };
+  var filled = [];
+  ['fTitle', 'fDesc', 'fLogo'].forEach(function (id) {
+    var el = $(id);
+    if (!el || el.value.trim()) return;                 // 已有内容 → 绝不覆盖
+    var v = cleanMetaText(meta[id === 'fTitle' ? 'title' : (id === 'fDesc' ? 'description' : 'logo')]);
+    if (!v) return;
+    var max = parseInt(el.getAttribute('maxlength') || '0', 10);
+    if (max > 0 && v.length > max) v = v.slice(0, max);
+    el.value = v;
+    el.classList.add('autofilled');
+    filled.push(labels[id]);
+  });
+  return filled;
+}
+
+function setAutoHint(kind, html) {
+  var h = $('autoMetaHint');
+  if (!h) return;
+  h.className = 'autometa-hint' + (kind ? ' ' + kind : '');
+  h.innerHTML = html;
+}
+
+async function autoFetchMeta() {
+  var btn = $('btnAutoMeta');
+  if (!btn || btn.disabled) return;
+  var target = normalizeTargetUrl($('fUrl').value);
+  if (!target) { toast('请先填写正确的「外网链接」'); return; }
+
+  btn.disabled = true;
+  var oldText = btn.textContent;
+  btn.textContent = '⏳ 获取中…';
+  setAutoHint('', '正在获取：本站接口 → 公共服务 → 图标探测…<br><span style="opacity:.75">若本站接口不可用，网址会发送给第三方公共服务；仅用于本次查询。</span>');
+
+  var meta = { title: '', description: '', logo: '', source: '' };
+  try {
+    var w = await tryWorkerMeta(target);
+    if (w && (w.title || w.description || w.logo)) meta = w;
+    else {
+      var p = await tryProxyMeta(target);
+      if (p) meta = p;
+    }
+    if (!$('fLogo').value.trim()) {                     // 已有 Logo 不重复探测
+      var logo = await probeLogo(logoCandidates(target, meta.logo));
+      if (logo) meta.logo = logo;
+    }
+  } catch (e) {}
+
+  var filled = applyMetaToForm(meta);
+  btn.disabled = false;
+  btn.textContent = oldText;
+
+  if (filled.length) {
+    var src = meta.source || '图标探测';
+    setAutoHint('ok', '✔ 已补齐 <b>' + filled.join('、') + '</b>（来源：' + escapeHtml(src) + '）。<br>所有字段仍可手动修改，改动后自动标记会消失。');
+    toast('已自动补齐 ' + filled.join('、'));
+  } else if (meta.title || meta.description || meta.logo) {
+    setAutoHint('', '未发现空白字段，未改动任何内容。如需重新获取，请先清空对应字段。');
+    toast('没有空白字段可填');
+  } else {
+    setAutoHint('warn', '⚠ 自动获取失败：目标站不可达 / 反爬 / 公共服务限流。<br>请手动填写，或稍后重试；已填写的内容保持不变。');
+    toast('自动获取失败，请手动填写');
+  }
+}
+
+/* 打开弹窗时重置自动获取状态；用户手动编辑即移除自动标记 */
+function resetAutoMetaState() {
+  var h = $('autoMetaHint');
+  if (h) { h.className = 'autometa-hint hidden'; h.innerHTML = ''; }
+  ['fTitle', 'fDesc', 'fLogo'].forEach(function (id) {
+    var el = $(id);
+    if (el) el.classList.remove('autofilled');
+  });
+  var btn = $('btnAutoMeta');
+  if (btn) { btn.disabled = false; btn.textContent = '⚡ 自动获取'; }
 }
 
 /* ---------- 数据持久化与后端模式 ---------- */
@@ -700,6 +933,7 @@ function openItemModal(mode, gi, ii) {
   }
   fillGroupSelect(gi);
   $('fGroupField').classList.remove('hidden');
+  resetAutoMetaState();
   $('modal').classList.remove('hidden');
   $('fTitle').focus();
 }
@@ -710,6 +944,15 @@ function closeModal() {
 }
 $('modalCancel').addEventListener('click', closeModal);
 $('modal').addEventListener('click', function (e) { if (e.target === this) closeModal(); });
+/* 自动获取按钮 + 手动编辑时移除自动标记（v1.4.0） */
+(function bindAutoMeta() {
+  var btn = $('btnAutoMeta');
+  if (btn) btn.addEventListener('click', autoFetchMeta);
+  ['fTitle', 'fDesc', 'fLogo', 'fUrl'].forEach(function (id) {
+    var el = $(id);
+    if (el) el.addEventListener('input', function () { el.classList.remove('autofilled'); });
+  });
+})();
 
 /* ---------- 弹窗：分类 ---------- */
 var groupModalMode = 'add';

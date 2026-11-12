@@ -112,7 +112,14 @@
         <label>所属分组</label>
         <select id="fGroup"></select>
       </div>
-      <div class="field"><label>外网链接</label><input id="fUrl" type="url" placeholder="https://..."></div>
+      <div class="field">
+        <label>外网链接</label>
+        <div class="url-row">
+          <input id="fUrl" type="url" placeholder="https://...">
+          <button type="button" id="btnAutoMeta" class="btn ghost small autometa-btn" title="只填网址，自动补齐名称 / 描述 / Logo">⚡ 自动获取</button>
+        </div>
+        <div id="autoMetaHint" class="autometa-hint hidden"></div>
+      </div>
       <div class="field"><label>内网链接（可选）</label><input id="fLan" type="text" placeholder="http://192.168.x.x:端口 或留空"></div>
       <div class="field"><label>描述信息</label><input id="fDesc" type="text" maxlength="120" placeholder="站点简介，对应 Sun-Panel 的「描述信息」"></div>
       <div class="field"><label>Logo 地址（可选，留空自动获取）</label><input id="fLogo" type="url" placeholder="https://.../favicon.ico"></div>
