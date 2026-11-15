@@ -1,0 +1,332 @@
+[
+  {
+    "id": "s01",
+    "name": "乐播资源站",
+    "api": "https://lbapi9.com/api.php/provide/vod/",
+    "tags": [
+      "综合",
+      "国产自拍",
+      "稳",
+      "大库"
+    ],
+    "total": 326862,
+    "note": "三条高速通道之一，体量最大，秒开",
+    "channel": 1,
+    "host": "lbapi9.com"
+  },
+  {
+    "id": "s02",
+    "name": "森林资源站",
+    "api": "https://slapibf.com/api.php/provide/vod/",
+    "tags": [
+      "综合",
+      "日韩",
+      "中文字幕",
+      "大库"
+    ],
+    "total": 251456,
+    "note": "三条高速通道之一，日韩片量足",
+    "channel": 2,
+    "host": "slapibf.com"
+  },
+  {
+    "id": "s03",
+    "name": "搜AV资源站",
+    "api": "https://api.souavzyw.net/api.php/provide/vod/",
+    "tags": [
+      "日本AV",
+      "资料最全",
+      "演员",
+      "厂商"
+    ],
+    "total": 125142,
+    "note": "三条高速通道之一，唯一带演员/厂商/地区字段，播放页资料靠它补齐",
+    "channel": 3,
+    "host": "api.souavzyw.net"
+  },
+  {
+    "id": "s04",
+    "name": "杏吧资源站",
+    "api": "https://json.xingba222.com/api.php/provide/vod",
+    "tags": [
+      "综合",
+      "国产主播",
+      "时长"
+    ],
+    "total": 109311,
+    "note": "带时长字段，国产主播多",
+    "channel": 0,
+    "host": "json.xingba222.com"
+  },
+  {
+    "id": "s05",
+    "name": "黑料资源站",
+    "api": "https://heiliaozyapi.com/api.php/provide/vod",
+    "tags": [
+      "黑料",
+      "中文字幕",
+      "吃瓜"
+    ],
+    "total": 98780,
+    "note": "网红黑料/吃瓜向",
+    "channel": 0,
+    "host": "heiliaozyapi.com"
+  },
+  {
+    "id": "s06",
+    "name": "老色X资源站",
+    "api": "https://apilsbzy1.com/api.php/provide/vod/",
+    "tags": [
+      "综合",
+      "国产精品",
+      "无码"
+    ],
+    "total": 215566,
+    "note": "大库，国产精品多",
+    "channel": 0,
+    "host": "apilsbzy1.com"
+  },
+  {
+    "id": "s07",
+    "name": "玉兔资源站",
+    "api": "https://apiyutu.com/api.php/provide/vod/",
+    "tags": [
+      "综合",
+      "国产精品",
+      "日本无码"
+    ],
+    "total": 209913,
+    "note": "老牌，更新勤",
+    "channel": 0,
+    "host": "apiyutu.com"
+  },
+  {
+    "id": "s08",
+    "name": "湿乐园资源站",
+    "api": "https://xxavs.com/api.php/provide/vod/",
+    "tags": [
+      "高清",
+      "综合",
+      "热门"
+    ],
+    "total": 220910,
+    "note": "高清片多",
+    "channel": 0,
+    "host": "xxavs.com"
+  },
+  {
+    "id": "s09",
+    "name": "黄色仓库",
+    "api": "https://hsckzy888.com/api.php/provide/vod",
+    "tags": [
+      "国产",
+      "AV区",
+      "动漫"
+    ],
+    "total": 66497,
+    "note": "分区清楚，带时长",
+    "channel": 0,
+    "host": "hsckzy888.com"
+  },
+  {
+    "id": "s10",
+    "name": "豆豆资源站",
+    "api": "https://api.douapi.cc/api.php/provide/vod",
+    "tags": [
+      "国产",
+      "探花",
+      "传媒"
+    ],
+    "total": 44118,
+    "note": "探花/传媒向",
+    "channel": 0,
+    "host": "api.douapi.cc"
+  },
+  {
+    "id": "s11",
+    "name": "精品X资源站",
+    "api": "https://www.jingpinx.com/api.php/provide/vod",
+    "tags": [
+      "国产",
+      "日本",
+      "欧美",
+      "偷拍"
+    ],
+    "total": 52951,
+    "note": "分类齐",
+    "channel": 0,
+    "host": "www.jingpinx.com"
+  },
+  {
+    "id": "s12",
+    "name": "新极品资源站",
+    "api": "https://jipinvip1.com/api.php/provide/vod/",
+    "tags": [
+      "无广告",
+      "秒播",
+      "日韩"
+    ],
+    "total": 56144,
+    "note": "无广告无水印，秒播",
+    "channel": 0,
+    "host": "jipinvip1.com"
+  },
+  {
+    "id": "s13",
+    "name": "麻豆资源站",
+    "api": "https://91md.me/api.php/provide/vod/",
+    "tags": [
+      "麻豆",
+      "传媒",
+      "制片厂"
+    ],
+    "total": 37495,
+    "note": "麻豆/天美/蜜桃等传媒厂牌",
+    "channel": 0,
+    "host": "91md.me"
+  },
+  {
+    "id": "s14",
+    "name": "白嫖资源站",
+    "api": "https://www.kxgav.com/api/json.php",
+    "tags": [
+      "成人",
+      "FC2",
+      "素人"
+    ],
+    "total": 23459,
+    "note": "FC2/素人向",
+    "channel": 0,
+    "host": "www.kxgav.com"
+  },
+  {
+    "id": "s15",
+    "name": "美少女资源站",
+    "api": "https://www.msnii.com/api/json.php",
+    "tags": [
+      "成人",
+      "日本"
+    ],
+    "total": 24752,
+    "note": "日本素人向",
+    "channel": 0,
+    "host": "www.msnii.com"
+  },
+  {
+    "id": "s16",
+    "name": "X水机资源站",
+    "api": "https://www.xrbsp.com/api/json.php",
+    "tags": [
+      "成人",
+      "FC2"
+    ],
+    "total": 23465,
+    "note": "FC2 番号向",
+    "channel": 0,
+    "host": "www.xrbsp.com"
+  },
+  {
+    "id": "s17",
+    "name": "黄av资源站",
+    "api": "https://www.pgxdy.com/api/json.php",
+    "tags": [
+      "成人",
+      "国产"
+    ],
+    "total": 23625,
+    "note": "小库，更新快",
+    "channel": 0,
+    "host": "www.pgxdy.com"
+  },
+  {
+    "id": "s18",
+    "name": "香X儿资源站",
+    "api": "https://www.gdlsp.com/api/json.php",
+    "tags": [
+      "成人",
+      "国产"
+    ],
+    "total": 23787,
+    "note": "小库备用",
+    "channel": 0,
+    "host": "www.gdlsp.com"
+  },
+  {
+    "id": "s19",
+    "name": "越南资源站",
+    "api": "https://api.vnzyz.com/api.php/provide/vod/",
+    "tags": [
+      "越南",
+      "亚洲情色"
+    ],
+    "total": 13101,
+    "note": "东南亚向，小库",
+    "channel": 0,
+    "host": "api.vnzyz.com"
+  },
+  {
+    "id": "s20",
+    "name": "光速资源站",
+    "api": "https://api.guangsuapi.com/api.php/provide/vod/",
+    "tags": [
+      "极速",
+      "直链"
+    ],
+    "total": 110878,
+    "note": "接口快，直链 m3u8",
+    "channel": 0,
+    "host": "api.guangsuapi.com"
+  },
+  {
+    "id": "s21",
+    "name": "极速资源站",
+    "api": "https://jszyapi.com/api.php/provide/vod/",
+    "tags": [
+      "极速",
+      "JSON"
+    ],
+    "total": 109145,
+    "note": "接口稳定",
+    "channel": 0,
+    "host": "jszyapi.com"
+  },
+  {
+    "id": "s22",
+    "name": "桃花资源站",
+    "api": "https://thzy1.me/api.php/provide/vod/",
+    "tags": [
+      "综合",
+      "精品"
+    ],
+    "total": 138381,
+    "note": "备选大库",
+    "channel": 0,
+    "host": "thzy1.me"
+  },
+  {
+    "id": "s23",
+    "name": "155资源站",
+    "api": "https://155api.com/api.php/provide/vod",
+    "tags": [
+      "高清",
+      "极速"
+    ],
+    "total": 183497,
+    "note": "备选大库",
+    "channel": 0,
+    "host": "155api.com"
+  },
+  {
+    "id": "s24",
+    "name": "鲨鱼资源站",
+    "api": "https://shayuapi.com/api.php/provide/vod/",
+    "tags": [
+      "综合",
+      "新站"
+    ],
+    "total": 278130,
+    "note": "备选大库",
+    "channel": 0,
+    "host": "shayuapi.com"
+  }
+]
