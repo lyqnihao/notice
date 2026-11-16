@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="清影 CleanVid —— 普通影视聚合，已过滤成人内容" />
+  <title>清影 CleanVid</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js"></script>
+</head>
+<body>
+  <!-- 头部 -->
+  <header class="header">
+    <a class="logo" href="#" onclick="location.reload();return false;">清影 <span>CleanVid</span></a>
+    <div class="search-box">
+      <input id="search-input" type="search" placeholder="搜索电影 / 剧集 / 演员…" autocomplete="off" />
+      <button id="search-btn" type="button">搜索</button>
+    </div>
+    <div class="header-actions">
+      <button id="btn-update-source" class="btn btn-ghost btn-sm" type="button">更新源</button>
+    </div>
+  </header>
+
+  <!-- 首页 -->
+  <div id="home-view">
+    <nav class="nav-cats">
+      <button data-cat="all" class="active">全部</button>
+      <button data-cat="movie">电影</button>
+      <button data-cat="tv">电视剧</button>
+      <button data-cat="anime">动漫</button>
+      <button data-cat="variety">综艺</button>
+    </nav>
+    <div class="container">
+      <div id="status" class="status hidden"></div>
+      <div id="grid" class="grid"></div>
+      <button id="load-more" class="btn load-more hidden" type="button">加载更多</button>
+    </div>
+  </div>
+
+  <!-- 播放页 -->
+  <div id="play-view" class="hidden">
+    <div class="back-bar">
+      <button id="btn-back" class="btn btn-ghost btn-sm" type="button">← 返回</button>
+    </div>
+    <div class="play-layout">
+      <div>
+        <div class="player-wrap">
+          <video id="video" controls playsinline></video>
+        </div>
+        <div class="ad-toggle">
+          <label>
+            <input type="checkbox" id="ad-filter" checked />
+            广告过滤（启发式剔除短贴片）
+          </label>
+        </div>
+      </div>
+      <aside class="play-side">
+        <h1 id="play-title">—</h1>
+        <div id="play-meta"></div>
+        <h3 style="font-size:14px;margin-top:12px">选集</h3>
+        <div id="ep-list" class="ep-list"></div>
+        <div class="direct-link">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span>直链 (m3u8)</span>
+            <button id="btn-copy-link" class="btn btn-ghost btn-sm" type="button">复制直链</button>
+          </div>
+          <input id="direct-url" type="text" readonly placeholder="播放后自动填充" />
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- 源面板 -->
+  <div id="source-modal" class="modal-mask hidden">
+    <div class="modal">
+      <h2>更新视频源</h2>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">
+        扫描源池可用性与速度。建议同时启用 ≤3 条。已内置成人内容过滤。
+      </p>
+      <div id="source-list"></div>
+      <div class="modal-actions">
+        <button id="btn-best" class="btn btn-ghost btn-sm" type="button">选最优 3 条</button>
+        <button id="btn-apply-sources" class="btn btn-sm" type="button">应用并刷新</button>
+        <button id="btn-close-modal" class="btn btn-ghost btn-sm" type="button">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
