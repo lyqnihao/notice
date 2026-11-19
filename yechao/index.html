@@ -100,7 +100,7 @@
   </div>
 </div>
 
-<!-- 播放器浮层 -->
+<!-- 播放器浮层（方案B：播放器→线路→选集→详情→演职员/分类/标签→相关推荐） -->
 <div class="player-mask" id="pmask" hidden>
   <div class="player-box" role="dialog" aria-modal="true" aria-label="视频播放">
     <div class="player-hd">
@@ -112,22 +112,73 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
     </div>
-    <div class="player-video">
-      <video id="video" controls playsinline preload="none"></video>
-      <div class="pfall" id="pfall" hidden>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-          <circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/>
-        </svg>
-        <p id="pfWhy">这条线路暂时打不开</p>
-        <small id="pfTip">片源服务器的问题，换一集或换一部试试</small>
-        <div class="pf-btns">
-          <button id="pfSwitch" type="button" hidden>换条线路</button>
-          <a id="pfLink" href="#" target="_blank" rel="noopener">用外部播放器打开</a>
+
+    <div class="player-scroll">
+      <!-- ① 播放器 + 常驻进度条 -->
+      <div class="player-video">
+        <video id="video" controls playsinline preload="auto"></video>
+        <div class="pfall" id="pfall" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/>
+          </svg>
+          <p id="pfWhy">这条线路暂时打不开</p>
+          <small id="pfTip">片源服务器的问题，换一集或换一部试试</small>
+          <div class="pf-btns">
+            <button id="pfSwitch" type="button" hidden>换条线路</button>
+            <a id="pfLink" href="#" target="_blank" rel="noopener">用外部播放器打开</a>
+          </div>
         </div>
       </div>
+      <div class="prog-row" id="progRow" hidden>
+        <span class="prog-cur" id="progCur">00:00</span>
+        <input type="range" id="progBar" min="0" max="1000" value="0" step="1" aria-label="播放进度" title="播放进度（可拖动）">
+        <span class="prog-dur" id="progDur">LIVE</span>
+      </div>
+
+      <!-- ② 播放线路选择 -->
+      <div class="p-block" id="lineBlock">
+        <div class="p-block-hd"><h4>播放线路</h4><span class="p-hint" id="pLineHint"></span></div>
+        <div class="lines" id="lines"></div>
+      </div>
+
+      <!-- ③ 选集区域 -->
+      <div class="p-block" id="epBlock">
+        <div class="p-block-hd"><h4>选集</h4><span class="p-hint" id="epHint"></span></div>
+        <div class="eps" id="eps"></div>
+      </div>
+
+      <!-- ④ 影片详细信息 -->
+      <div class="p-block" id="detailBlock">
+        <div class="p-block-hd"><h4>影片信息</h4></div>
+        <div class="p-detail" id="pDetail"></div>
+      </div>
+
+      <!-- ⑤ 演员 / 导演 / 分类 / 标签 -->
+      <div class="p-block" id="metaBlock">
+        <div class="p-chips" id="pChips"></div>
+      </div>
+
+      <!-- 播放工具：过滤开关 + 片头片尾 + 自动下一集 -->
+      <div class="p-tools">
+        <label class="p-tool"><span>M3U8 广告过滤 <em id="filterNote">—</em></span>
+          <span class="switch"><input type="checkbox" id="adfCheck" checked><span class="track"></span></span></label>
+        <div class="p-tool-row">
+          <button class="p-tool-btn" id="dlM3u8Btn" hidden>下载过滤后 M3U8</button>
+        </div>
+        <label class="p-tool"><span>自动下一集</span>
+          <span class="switch"><input type="checkbox" id="autoNextCheck" checked><span class="track"></span></span></label>
+        <label class="p-tool"><span>片头跳过 <input type="number" id="introSec" min="0" max="600" value="0" aria-label="片头跳过秒数"> 秒</span>
+          <span class="switch"><input type="checkbox" id="skipIntroCheck"><span class="track"></span></span></label>
+        <label class="p-tool"><span>片尾预留 <input type="number" id="outroSec" min="0" max="600" value="0" aria-label="片尾预留秒数"> 秒</span>
+          <span class="switch"><input type="checkbox" id="skipOutroCheck"><span class="track"></span></span></label>
+      </div>
+
+      <!-- ⑥ 相关推荐 -->
+      <div class="p-block" id="relBlock">
+        <div class="p-block-hd"><h4>相关推荐</h4></div>
+        <div class="rel-grid" id="relGrid"></div>
+      </div>
     </div>
-    <div class="p-meta" id="pMeta"></div>
-    <div class="eps" id="eps"></div>
   </div>
 </div>
 
@@ -136,13 +187,37 @@
   <section class="source-panel" role="dialog" aria-modal="true" aria-label="资源站管理">
     <header class="sm-header"><div><span class="sm-kicker">NOCTIDE CONTROL</span><h2>资源站管理</h2><p id="smSummary">正在读取线路…</p></div><button id="smClose" class="pclose" aria-label="关闭">×</button></header>
     <div class="sm-content">
-      <section class="sm-section"><div class="sm-section-head"><div><h3>采集线路</h3><p>苹果 CMS V10 · Provide/Vod JSON 接口</p></div><div class="sm-tools"><button id="smTestAll">检测全部</button><button id="smExport">导出配置</button><button id="smImportBtn">导入配置</button><input id="smImportFile" type="file" accept="application/json,.json" hidden></div></div>
+      <section class="sm-section"><div class="sm-section-head"><div><h3>采集线路</h3><p>苹果 CMS V10 · Provide/Vod JSON 接口</p></div>
+        <div class="sm-tools">
+          <button id="smSelectAll">全选</button><button id="smInvertSel">反选</button>
+          <button id="smTestSel" class="accent">检测选中</button><button id="smTestAll">检测全部</button>
+          <button id="smExport">导出配置</button><button id="smImportBtn">导入配置</button>
+          <input id="smImportFile" type="file" accept="application/json,.json" hidden>
+        </div>
+      </div>
+        <div id="smProgress" class="sm-progress" hidden><div class="sm-progress-bar"><i id="smProgressBar"></i></div><span id="smProgressText">准备检测…</span></div>
+        <div id="smTestSummary" class="sm-test-summary" hidden></div>
         <div id="smSourceList" class="sm-source-list"></div><button id="smAdd" class="sm-add">＋ 添加单条线路</button>
       </section>
-      <section class="sm-section"><div class="sm-section-head"><div><h3>订阅管理</h3><p>通过 JSON 订阅地址批量导入和更新线路</p></div></div>
-        <div class="sm-sub-form"><input id="smSubName" placeholder="订阅名称（可选）"><input id="smSubUrl" type="url" placeholder="https://example.com/sources.json"><button id="smAddSub">添加订阅</button></div><div id="smSubList" class="sm-sub-list"></div>
+      <section class="sm-section"><div class="sm-section-head"><div><h3>订阅管理</h3><p>兼容 LunaTV / MoonTV / OmniBox / JSON 数组 / Base58 等格式</p></div><button id="smUpdateAllSub" class="accent">更新全部订阅</button></div>
+        <div class="sm-sub-form"><input id="smSubName" placeholder="订阅名称（可选）"><input id="smSubUrl" type="url" placeholder="https://example.com/subscribe.json"><button id="smAddSub">添加订阅</button></div><div id="smSubList" class="sm-sub-list"></div>
+        <div id="smSubResult" class="sm-sub-result" hidden></div>
       </section>
-      <p class="sm-footnote">直连模式：浏览器直接请求资源站。若源站未开放 CORS，检测和播放目录请求会被浏览器拦截；本版本不会暗中使用反向代理。线路配置仅保存在当前浏览器。</p>
+      <section class="sm-section"><div class="sm-section-head"><div><h3>请求模式</h3><p>直连 / 中继，用于跨域资源检测与订阅获取</p></div></div>
+        <div class="sm-setting-row"><label>请求模式
+          <select id="smReqMode">
+            <option value="direct">纯直连</option>
+            <option value="relay-first">优先使用 relay</option>
+            <option value="fallback" selected>直连失败后自动 relay（推荐）</option>
+          </select>
+        </label></div>
+        <div class="sm-setting-row"><label>中继地址（relay）
+          <input id="smRelay" type="url" placeholder="https://你的worker.example/?url="></label></div>
+        <div class="sm-setting-row"><label>请求超时（毫秒）
+          <input id="smTimeout" type="number" min="2000" max="30000" step="1000" value="10000"></label></div>
+        <p class="sm-hint">候选公共中继 https://pz.v88.qzz.io/?url= 已实测可用，但公共代理有隐私与日志风险；留空则只走直连。中继仅发送目标 URL，请勿传入敏感地址。</p>
+      </section>
+      <p class="sm-footnote">勾选框仅用于批量操作，不影响采集；启用开关决定线路是否参与采集，禁用线路仍可手动检测。配置仅保存在当前浏览器。</p>
     </div>
   </section>
 </div>
@@ -152,6 +227,7 @@
 <div class="toast" id="toast" hidden></div>
 
 <script src="./hls.min.js"></script>
+<script src="./signal-core.js"></script>
 <script src="./source-manager.js"></script>
 <script src="./app.js"></script>
 </body>

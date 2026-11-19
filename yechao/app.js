@@ -118,6 +118,9 @@ function norm(v) {
     hits: Number(v.vod_hits) || 0, score: Number(v.vod_score) || 0,
     time, year: time.slice(0, 4), url: v.vod_play_url || '',
     content: v.vod_content || v.vod_blurb || '',
+    actor: v.vod_actor || '', director: v.vod_director || '',
+    tags: v.vod_tag ? String(v.vod_tag).split(/[,，\/]/).filter(Boolean) : [],
+    _raw: v,
   };
 }
 
@@ -165,6 +168,7 @@ function card(v, opt = {}) {
     <div class="c-sub">
       ${v.cat ? `<span class="c-cat">${esc(v.cat)}</span>` : ''}
       ${v.year && v.year !== '0000' ? `<span>${esc(v.year)}</span>` : ''}
+      ${v.score ? `<span class="c-score">★ ${Number(v.score).toFixed(1)}</span>` : ''}
       ${v.hits ? `<span>${v.hits > 9999 ? (v.hits / 10000).toFixed(1) + 'w' : v.hits} 次</span>` : ''}
     </div>
   </article>`;
@@ -420,22 +424,53 @@ function renderHist() {
 }
 
 /* ── 播放 ───────────────────────────── */
+const NCF = window.NC || {};
 let hls = null;
-let CUR = null;        // 当前播放的条目
+let CUR = null;          // 当前播放的条目
+let PLAY_LINES = [];     // 当前影片的播放线路：[{name, eps:[{name,url}]}]
+let curLine = 0, curEp = 0;
 let playTimer = null;
 let saveTick = null;
+let playlistText = '';   // 最近一次拉取到的 m3u8 文本（过滤前）
+let filteredBlobUrl = '';// 过滤后 blob 地址
+let lastFilterRemoved = 0;
+let introSkipped = false; // 片头跳过：每集只跳一次
+let userSeeked = false;   // 用户是否手动拖过进度（防止片头误触发）
+let warmedEp = -1;        // 已预热的下一集下标
+
+/* 播放设置（本地持久化） */
+const PREF = Object.assign(
+  { adfOn: true, autoNext: true, skipIntro: false, introSec: 0, skipOutro: false, outroSec: 0 },
+  (() => { try { return JSON.parse(localStorage.getItem('nc_player_pref_v1')) || {}; } catch (_) { return {}; } })()
+);
+const savePref = () => { try { localStorage.setItem('nc_player_pref_v1', JSON.stringify(PREF)); } catch (_) {} };
+
+/* 解析 vod_play_url：$$$ 分隔线路，每条线路内 # 分隔剧集，最后 $ 后为地址 */
+function parsePlayLines(urlStr) {
+  return String(urlStr || '').split('$$$').map((line, li) => {
+    const eps = line.split('#').map(s => {
+      const i = s.lastIndexOf('$');
+      if (i < 0) return null;
+      const u = s.slice(i + 1).trim();
+      return u ? { name: s.slice(0, i).trim() || '播放', url: u } : null;
+    }).filter(Boolean);
+    return { name: '线路 ' + (li + 1), eps };
+  }).filter(l => l.eps.length);
+}
+
+function fmt(s) { return (NCF.fmtClock || ((x) => String(Math.floor(x || 0))))(s); }
 
 async function play(id) {
   const mask = $('#pmask');
   mask.hidden = false;
   document.body.style.overflow = 'hidden';
   $('#pTitle').textContent = '加载中…';
-  $('#eps').innerHTML = '';
-  $('#pMeta').innerHTML = '';
+  $('#progRow').hidden = true;
+  ['#lines', '#eps', '#pDetail', '#pChips', '#relGrid'].forEach(s => { const el = $(s); if (el) el.innerHTML = ''; });
+  $('#filterNote').textContent = '—';
   hideFallback();
 
   try {
-    // 列表里的数据基本都带 vod_play_url，命中就不用再请求详情（快一倍）
     let raw = S.pool.find(x => String(x.id) === String(id));
     if (!raw) raw = FAV.find(x => String(x.id) === String(id)) || HIST.find(x => String(x.id) === String(id));
     let v = raw;
@@ -448,28 +483,23 @@ async function play(id) {
     CUR = v;
     $('#pTitle').textContent = v.name || '播放';
     $('#pFav').classList.toggle('faved', isFav(v.id));
-    $('#pMeta').innerHTML = [
-      v.cat ? `<span class="m-cat">${esc(v.cat)}</span>` : '',
-      v.rem ? `<span class="m-cat">${esc(v.rem)}</span>` : '',
-      v.hits ? `<span>${v.hits.toLocaleString()} 次播放</span>` : '',
-    ].join('');
 
-    // 多线路：vod_play_url 用 $$$ 分隔，取第一条线路里的全集
-    const eps = (v.url || '').split('$$$')[0].split('#')
-      .map(s => {
-        const i = s.lastIndexOf('$');       // 必须用 lastIndexOf：地址里可能含 $
-        if (i < 0) return null;
-        const url = s.slice(i + 1).trim();
-        return url ? { name: s.slice(0, i).trim() || '播放', url } : null;
-      }).filter(Boolean);
-    if (!eps.length) throw new Error('no source');
-
-    if (eps.length > 1) {
-      $('#eps').innerHTML = eps.map((e, i) =>
-        `<button class="ep${i === 0 ? ' on' : ''}" data-u="${esc(e.url)}">${esc(e.name)}</button>`).join('');
-    }
+    PLAY_LINES = parsePlayLines(v.url);
+    if (!PLAY_LINES.length) throw new Error('no source');
+    curLine = 0; curEp = 0;
+    renderLines();
+    renderDetail(v);
+    renderChips(v);
+    renderRelated(v);
     pushHist(v);
-    src(eps[0].url);
+
+    // 续播：选集定位到上次观看的集（若记录了 epIndex）
+    const w = WATCH[v.id];
+    if (w && typeof w.ep === 'number' && w.ep < PLAY_LINES[0].eps.length) {
+      curEp = w.ep;
+      $$('.ep').forEach((b, i) => b.classList.toggle('on', i === curEp));
+    }
+    srcOf(curLine, curEp);
   } catch (e) {
     CUR = null;
     $('#pTitle').textContent = '播放';
@@ -477,22 +507,321 @@ async function play(id) {
   }
 }
 
-// 播放失败兜底：绝不能留一个黑掉的空播放器
+function renderLines() {
+  const box = $('#lines');
+  if (!box) return;
+  box.innerHTML = PLAY_LINES.map((l, i) =>
+    `<button class="line-btn${i === curLine ? ' on' : ''}" data-line="${i}">${esc(l.name)}${l.eps.length > 1 ? ' · ' + l.eps.length + '集' : ''}</button>`
+  ).join('');
+  $('#pLineHint').textContent = `${PLAY_LINES.length} 条线路`;
+}
+
+function renderEps() {
+  const box = $('#eps');
+  if (!box) return;
+  const eps = PLAY_LINES[curLine]?.eps || [];
+  $('#epHint').textContent = `${eps.length} 集`;
+  box.innerHTML = eps.length > 1
+    ? eps.map((e, i) => `<button class="ep${i === curEp ? ' on' : ''}" data-ep="${i}" title="${esc(e.name)}">${esc(e.name)}</button>`).join('')
+    : `<span class="p-hint">${eps.length ? '单片，无需选集' : '暂无剧集'}</span>`;
+}
+
+/* 影片详细信息（方案B ④） */
+function renderDetail(v) {
+  const rows = [];
+  if (v.cat) rows.push(`<div class="pd-row"><span class="pd-label">分类</span>${esc(v.cat)}</div>`);
+  if (v.year && v.year !== '0000') rows.push(`<div class="pd-row"><span class="pd-label">年份</span>${esc(v.year)}</div>`);
+  if (v.rem) rows.push(`<div class="pd-row"><span class="pd-label">备注</span>${esc(v.rem)}</div>`);
+  if (v.score) rows.push(`<div class="pd-row"><span class="pd-label">评分</span>★ ${Number(v.score).toFixed(1)}</div>`);
+  if (v.hits) rows.push(`<div class="pd-row"><span class="pd-label">播放</span>${v.hits.toLocaleString()} 次</div>`);
+  const desc = String(v.content || '').replace(/<[^>]+>/g, '').trim();
+  $('#pDetail').innerHTML = rows.join('') + (desc ? `<div class="pd-desc">${esc(desc)}</div>` : '') || '<div class="p-hint">暂无更多信息</div>';
+}
+
+/* 演员/导演/分类/标签：可点击站内搜索（方案B ⑤） */
+function renderChips(v) {
+  const box = $('#pChips');
+  if (!box) return;
+  const chips = [];
+  const raw = v._raw || {};
+  const actors = raw.vod_actor || v.actor || '';
+  const director = raw.vod_director || v.director || '';
+  const cats = [v.cat, ...(Array.isArray(v.tags) ? v.tags : [])].filter(Boolean);
+  const split = s => String(s || '').split(/[,，、\/]/).map(x => x.trim()).filter(Boolean);
+  split(director).forEach(n => chips.push({ k: '导演', v: n, role: true }));
+  split(actors).forEach(n => chips.push({ k: '演员', v: n, role: true }));
+  cats.forEach(n => chips.push({ k: '分类', v: n, role: false }));
+  box.innerHTML = chips.map((c, i) =>
+    `<span class="p-chip${c.role ? ' role' : ''}" data-chip="${esc(c.v)}" title="点击搜索「${esc(c.v)}」"><span class="chip-k">${c.k}</span>${esc(c.v)}</span>`
+  ).join('');
+}
+
+/* 相关推荐：同分类优先，点击切换播放（方案B ⑥） */
+function renderRelated(v) {
+  const box = $('#relGrid');
+  if (!box) return;
+  let rel = S.pool.filter(x => String(x.id) !== String(v.id) && x.cat && v.cat && x.cat === v.cat);
+  if (rel.length < 4) {
+    const more = S.pool.filter(x => String(x.id) !== String(v.id) && !rel.includes(x));
+    rel = rel.concat(more);
+  }
+  rel = rel.slice(0, 12);
+  box.innerHTML = rel.map(x => card(x)).join('');
+  bindLazy(box);
+}
+
+/* 播放失败兜底 */
 function showFallback(url, why, tip) {
   const box = $('#pfall');
   $('#pfWhy').textContent = why || '这条线路暂时打不开';
   $('#pfTip').textContent = tip || '片源服务器的问题，换一集或换一部试试';
   const a = $('#pfLink');
   if (url) { a.href = url; a.hidden = false; } else { a.hidden = true; }
-  $('#pfSwitch').hidden = !hasOtherLine();
+  $('#pfSwitch').hidden = PLAY_LINES.length <= 1;
   box.hidden = false;
-  // 播不了还留着进度条会误导用户以为能拖动，一并收掉
   $('#video').removeAttribute('controls');
 }
+const hasOtherLine = () => PLAY_LINES.length > 1 || SourceManager.apis().some((_, i) => i !== S.line && !S.dead.has(i));
 
-const hasOtherLine = () => SourceManager.apis().some((_, i) => i !== S.line && !S.dead.has(i));
+const hideFallback = () => {
+  clearTimeout(playTimer);
+  const f = $('#pfall'); if (f) f.hidden = true;
+  const v = $('#video'); if (v) v.setAttribute('controls', '');
+};
 
-// 换线路：整站数据换一套源重新来（不同源的片子不同，没法接着播同一部）
+/* 切换播放线路（影片内多条源）——重新过滤 */
+function switchPlayLine(i) {
+  if (i === curLine || !PLAY_LINES[i]) return;
+  curLine = i; curEp = 0;
+  renderLines(); renderEps();
+  srcOf(curLine, curEp);
+}
+
+/* 切换剧集 */
+function switchEpisode(i) {
+  const eps = PLAY_LINES[curLine]?.eps || [];
+  if (i < 0 || i >= eps.length) return;
+  curEp = i;
+  $$('.ep').forEach((b, j) => b.classList.toggle('on', j === i));
+  srcOf(curLine, curEp);
+}
+
+/* —— 进度条（参考 TIDEFLOW：fmtClock / bindVideoEvents / progRow） —— */
+let progDragging = false;
+function progEls() {
+  return { row: $('#progRow'), bar: $('#progBar'), cur: $('#progCur'), dur: $('#progDur') };
+}
+function showProg() { const r = progEls().row; if (r) r.hidden = false; }
+function updProg() {
+  const { bar, cur, dur } = progEls();
+  const video = $('#video');
+  if (!bar || !video) return;
+  const d = video.duration, t = video.currentTime;
+  if (!isFinite(d) || !(d > 0)) {
+    // 未知时长 → LIVE，禁用 seek，显示已播时长
+    bar.disabled = true; bar.value = 0;
+    cur.textContent = fmt(t);
+    dur.textContent = 'LIVE';
+    showProg();
+    return;
+  }
+  bar.disabled = false;
+  if (!progDragging) bar.value = Math.round(t / d * 1000);
+  cur.textContent = fmt(t);
+  dur.textContent = fmt(d);
+  showProg();
+}
+
+function bindProgBar() {
+  const { bar, cur } = progEls();
+  if (!bar || bar._bound) return;
+  bar._bound = true;
+  bar.addEventListener('input', () => {
+    progDragging = true;
+    const v = $('#video');
+    if (v && isFinite(v.duration) && v.duration > 0) cur.textContent = fmt((bar.value / 1000) * v.duration);
+  });
+  bar.addEventListener('change', () => {
+    progDragging = false;
+    const v = $('#video');
+    if (v && isFinite(v.duration) && v.duration > 0) {
+      userSeeked = true;                       // 手动跳转后，片头跳过不再触发
+      v.currentTime = (bar.value / 1000) * v.duration;
+    }
+  });
+}
+
+/* 绑定 video 事件：更新进度、续播、自动下一集、片头片尾、预热、保存 */
+function bindVideoEvents() {
+  const video = $('#video');
+  bindProgBar();
+  video.addEventListener('loadedmetadata', () => {
+    updProg();
+    // 断点续播（单集内位置）
+    const w = CUR && WATCH[CUR.id];
+    if (w && w.t > 10 && isFinite(video.duration) && video.duration > w.t + 10 && !introSkipped) {
+      try { video.currentTime = w.t; } catch (_) {}
+    }
+  });
+  video.addEventListener('durationchange', updProg);
+  video.addEventListener('canplay', updProg);
+  video.addEventListener('playing', () => { clearTimeout(playTimer); showProg(); });
+  video.addEventListener('error', () => {
+    if ($('#pfall').hidden) showFallback(video.src || lastRawUrl, '这条线路暂时打不开');
+  });
+  video.addEventListener('timeupdate', () => {
+    const d = video.duration, t = video.currentTime;
+    if (!progDragging) updProg();
+    if (!isFinite(d) || d <= 0) return;
+
+    // 片头跳过：仅开头一次，用户未手动拖动，且开关开启
+    if (PREF.skipIntro && !introSkipped && !userSeeked && PREF.introSec > 0 && t < PREF.introSec && t >= 0) {
+      try { video.currentTime = Math.min(PREF.introSec, d - 1); } catch (_) {}
+      introSkipped = true;
+    }
+    // 到达片头之后即标记，避免中途误跳
+    if (t >= Math.max(PREF.introSec, 3)) introSkipped = true;
+
+    // 片尾跳过：到达总时长 - 预留秒数 → 下一集或结束
+    if (PREF.skipOutro && PREF.outroSec > 0 && d - t <= PREF.outroSec) {
+      const eps = PLAY_LINES[curLine]?.eps || [];
+      if (PREF.autoNext && curEp + 1 < eps.length) switchEpisode(curEp + 1);
+      else { video.pause(); }
+      return;
+    }
+
+    // 结尾预热下一集（预加载），仅在开启自动下一集时
+    if (PREF.autoNext && warmedEp !== curEp) {
+      const eps = PLAY_LINES[curLine]?.eps || [];
+      if (curEp + 1 < eps.length && d - t < 60) { warmedEp = curEp; warmNext(eps[curEp + 1].url); }
+    }
+  });
+  video.addEventListener('ended', () => {
+    if (!PREF.autoNext) return;
+    const eps = PLAY_LINES[curLine]?.eps || [];
+    if (curEp + 1 < eps.length) switchEpisode(curEp + 1);
+  });
+}
+
+let warmVideo = null;
+function warmNext(url) {
+  try {
+    if (warmVideo) { warmVideo.removeAttribute('src'); warmVideo.load(); }
+    warmVideo = document.createElement('video');
+    warmVideo.preload = 'auto'; warmVideo.muted = true; warmVideo.playsInline = true;
+    warmVideo.src = url; warmVideo.load();
+  } catch (_) {}
+}
+
+let lastRawUrl = '';
+function saveProgress() {
+  const v = $('#video');
+  if (CUR && v && v.duration && v.currentTime > 3) {
+    WATCH[CUR.id] = { t: v.currentTime, d: v.duration, ep: curEp };
+    saveWatch();
+  }
+}
+window.addEventListener('beforeunload', saveProgress);
+document.addEventListener('visibilitychange', () => { if (document.hidden) saveProgress(); });
+
+/* —— M3U8 拉取 + 广告过滤 + 播放 —— */
+async function resolvePlayUrl(rawUrl) {
+  // 只有 m3u8 走过滤；MP4 直链直接播
+  if (!/\.m3u8(\?|$)/i.test(rawUrl)) return { src: rawUrl, m3u8: false };
+  let text = '';
+  try {
+    const r = await NCF.withTimeout(fetch(rawUrl, { cache: 'no-store' }), (SourceManager.getCfg?.().timeout) || 10000);
+    if (r.ok) text = await r.text();
+  } catch (_) {}
+  if (!text) return { src: rawUrl, m3u8: true, filtered: false };
+  // master 列表：跟随第一个子码率
+  const variant = NCF.firstVariantUrl ? NCF.firstVariantUrl(text, rawUrl) : null;
+  let mediaUrl = rawUrl, mediaText = text;
+  if (variant) {
+    try {
+      const r2 = await NCF.withTimeout(fetch(variant, { cache: 'no-store' }), 10000);
+      if (r2.ok) { mediaText = await r2.text(); mediaUrl = variant; }
+    } catch (_) {}
+  }
+  playlistText = mediaText;
+  if (!PREF.adfOn) {
+    $('#filterNote').textContent = '已关闭（原始列表）';
+    $('#dlM3u8Btn').hidden = true;
+    return { src: mediaUrl, m3u8: true, filtered: false, base: mediaUrl };
+  }
+  const res = NCF.stripForeignSegments(mediaText, mediaUrl);
+  if (res.changed) {
+    lastFilterRemoved = res.removed;
+    const absolute = NCF.absolutizeSegments(res.text, mediaUrl);
+    if (filteredBlobUrl) URL.revokeObjectURL(filteredBlobUrl);
+    filteredBlobUrl = URL.createObjectURL(new Blob([absolute], { type: 'application/vnd.apple.mpegurl' }));
+    $('#filterNote').textContent = `已过滤 ${res.removed} 段`;
+    $('#dlM3u8Btn').hidden = false;
+    return { src: filteredBlobUrl, m3u8: true, filtered: true, base: mediaUrl, text: absolute };
+  }
+  $('#filterNote').textContent = res.reason === 'distribution_unclear' ? '分布不明显·未过滤' : '未发现广告分段';
+  $('#dlM3u8Btn').hidden = true;
+  return { src: mediaUrl, m3u8: true, filtered: false, base: mediaUrl };
+}
+
+function downloadFilteredM3u8() {
+  const text = $('#filterNote').dataset.blobText || '';
+  const content = text || (playlistText ? NCF.absolutizeSegments(playlistText, lastRawUrl) : '');
+  if (!content) { toast('没有可下载的过滤列表'); return; }
+  const blob = new Blob([content], { type: 'application/vnd.apple.mpegurl' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'noctide-filtered.m3u8';
+  a.click(); URL.revokeObjectURL(a.href);
+  toast('已下载过滤后的 M3U8');
+}
+
+/* 播放一个剧集地址 */
+async function srcOf(lineIdx, epIdx) {
+  const eps = PLAY_LINES[lineIdx]?.eps || [];
+  const ep = eps[epIdx];
+  if (!ep) return;
+  lastRawUrl = ep.url;
+  introSkipped = false; userSeeked = false; warmedEp = -1;
+  renderEps();
+  hideFallback();
+
+  const resolved = await resolvePlayUrl(ep.url);
+  if (resolved.m3u8 && resolved.filtered && resolved.text) {
+    $('#dlM3u8Btn').dataset.blobText = resolved.text;
+  }
+
+  const video = $('#video');
+  if (hls) { hls.destroy(); hls = null; }
+
+  clearTimeout(playTimer);
+  playTimer = setTimeout(() => {
+    if (video.readyState < 2) showFallback(ep.url, '这条线路暂时打不开', '片源服务器连不上，可以换条线路或换一部试试');
+  }, 12000);
+  video.oncanplay = () => clearTimeout(playTimer);
+  clearInterval(saveTick);
+  saveTick = setInterval(saveProgress, 5000);
+
+  // ⚠️ 先判 MSE 支持：Chrome 的 canPlayType('m3u8') 会误报 maybe，不能直接用
+  if (window.Hls?.isSupported() && resolved.m3u8) {
+    hls = new Hls({ maxBufferLength: 30 });
+    hls.loadSource(resolved.src);
+    hls.attachMedia(video);
+    hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
+    hls.on(Hls.Events.ERROR, (_, d) => {
+      if (!d.fatal) return;
+      if (d.type === Hls.ErrorTypes.NETWORK_ERROR && !hls._retried) { hls._retried = true; hls.startLoad(); return; }
+      if (d.type === Hls.ErrorTypes.MEDIA_ERROR && !hls._recovered) { hls._recovered = true; hls.recoverMediaError(); return; }
+      showFallback(ep.url, '这条线路暂时打不开', '片源连不上，可换线路或用外部播放器');
+    });
+  } else {
+    video.src = resolved.src;
+    video.onerror = () => showFallback(ep.url, '这条线路暂时打不开');
+  }
+  video.play().catch(() => {});
+}
+
+/* 换资源站线路（整站换源） */
 async function switchLine() {
   const apis = SourceManager.apis();
   const cur = S.line;
@@ -520,85 +849,21 @@ async function switchLine() {
   $('#pfSwitch').hidden = true;
 }
 
-const hideFallback = () => {
-  clearTimeout(playTimer);
-  const f = $('#pfall'); if (f) f.hidden = true;
-  const v = $('#video'); if (v) v.setAttribute('controls', '');
-};
-
-function src(url) {
-  const video = $('#video');
-  hideFallback();
-  if (hls) { hls.destroy(); hls = null; }
-
-  // 总超时兜底：不管因为什么原因（hls 不报错、切片挂了、证书过期…），
-  // 到点还没播起来就给用户一个交代，绝不留黑屏。
-  clearTimeout(playTimer);
-  playTimer = setTimeout(() => {
-    if (video.readyState < 2) {
-      showFallback(url, '这条线路暂时打不开', '片源服务器连不上，可以换条线路或换一部试试');
-    }
-  }, 12000);
-  video.oncanplay = () => clearTimeout(playTimer);
-
-  // 断点续播：接着上次的位置看
-  const w = CUR && WATCH[CUR.id];
-  if (w && w.t > 30) {
-    video.onloadedmetadata = () => {
-      try { video.currentTime = w.t; } catch (_) {}
-    };
-  }
-  clearInterval(saveTick);
-  saveTick = setInterval(() => {
-    if (!CUR || !video.duration || video.paused) return;
-    WATCH[CUR.id] = { t: video.currentTime, d: video.duration };
-    saveWatch();
-  }, 5000);
-
-  // ⚠️ 顺序不能反：Chrome 对 m3u8 的 canPlayType 会返回 "maybe"（其实播不好），
-  // 先判 canPlayType 会导致 hls.js 永远用不上、重试与多码率全失效。
-  // 只有 Safari/iOS（不支持 MSE，Hls.isSupported() 为 false）才走原生。
-  if (window.Hls?.isSupported()) {
-    hls = new Hls({ maxBufferLength: 30 });
-    hls.loadSource(url);
-    hls.attachMedia(video);
-    hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
-    hls.on(Hls.Events.ERROR, (_, d) => {
-      if (!d.fatal) return;
-      // 网络类错误先自愈重试一次，仍失败才提示（切片偶发超时很常见）
-      if (d.type === Hls.ErrorTypes.NETWORK_ERROR && !hls._retried) {
-        hls._retried = true; hls.startLoad(); return;
-      }
-      if (d.type === Hls.ErrorTypes.MEDIA_ERROR && !hls._recovered) {
-        hls._recovered = true; hls.recoverMediaError(); return;
-      }
-      showFallback(url, '这条线路暂时打不开',
-        '片源服务器连不上，可以换一集或换一部试试；也可以复制地址用外部播放器看');
-    });
-  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-    video.src = url;
-    video.onerror = () => showFallback(url, '这条线路暂时打不开');
-  } else {
-    video.src = url;
-    video.onerror = () => showFallback(url, '这条线路暂时打不开');
-  }
-  video.play().catch(() => {});
-}
-
 function closePlayer() {
+  saveProgress();
   clearInterval(saveTick);
+  clearTimeout(playTimer);
   const v = $('#video');
-  if (CUR && v && v.duration) {
-    WATCH[CUR.id] = { t: v.currentTime, d: v.duration };
-    saveWatch();
-  }
   $('#pmask').hidden = true;
   hideFallback();
+  $('#progRow').hidden = true;
   document.body.style.overflow = '';
   if (v) { v.pause(); v.removeAttribute('src'); v.load(); }
   if (hls) { hls.destroy(); hls = null; }
+  if (warmVideo) { try { warmVideo.removeAttribute('src'); warmVideo.load(); } catch (_) {} warmVideo = null; }
+  if (filteredBlobUrl) { URL.revokeObjectURL(filteredBlobUrl); filteredBlobUrl = ''; }
   const wasList = S.view;
-  CUR = null;
+  CUR = null; PLAY_LINES = [];
   if (wasList === 'fav' || wasList === 'hist') render();
 }
 
@@ -691,13 +956,33 @@ document.addEventListener('click', e => {
     return;
   }
 
-  // 卡片
+  // 卡片（播放器外的普通卡片）
   const c = e.target.closest('.card');
-  if (c) { play(c.dataset.id); return; }
+  if (c && !c.closest('#pmask')) { play(c.dataset.id); return; }
 
-  // 播放器内
+  // 播放器内（方案B）
+  // 相关推荐卡片：在播放器内部，点击切换到那部片
+  const relCard = e.target.closest('#relGrid .card');
+  if (relCard) { play(relCard.dataset.id); const sc = $('.player-scroll'); if (sc) sc.scrollTop = 0; return; }
+
+  // 可点击的演员/导演/分类/标签 → 关闭播放器并站内搜索
+  const chip = e.target.closest('.p-chip');
+  if (chip) {
+    const kw = chip.dataset.chip;
+    closePlayer();
+    S.kw = kw; S.cat = ''; S.filter = { year: '', res: '', sort: '' }; paintFilterBtn();
+    if ($('#q')) { $('#q').value = kw; $('#clr').hidden = false; }
+    renderCats(); setView('home'); load(true);
+    toast('搜索：' + kw);
+    return;
+  }
+
+  const lineBtn = e.target.closest('.line-btn');
+  if (lineBtn) { switchPlayLine(Number(lineBtn.dataset.line)); return; }
+
   const ep = e.target.closest('.ep');
-  if (ep) { $$('.ep').forEach(x => x.classList.remove('on')); ep.classList.add('on'); src(ep.dataset.u); return; }
+  if (ep) { switchEpisode(Number(ep.dataset.ep)); return; }
+
   if (e.target.closest('#pfSwitch')) { switchLine(); return; }
   if (e.target.closest('#pFav')) {
     if (!CUR) return;
@@ -757,6 +1042,29 @@ document.addEventListener('click', e => {
     return;
   }
 });
+
+/* ── 播放器设置控件事件（一次性绑定） ─────────────────────── */
+$('#adfCheck').checked = PREF.adfOn;
+$('#autoNextCheck').checked = PREF.autoNext;
+$('#skipIntroCheck').checked = PREF.skipIntro;
+$('#introSec').value = PREF.introSec;
+$('#skipOutroCheck').checked = PREF.skipOutro;
+$('#outroSec').value = PREF.outroSec;
+$('#adfCheck').addEventListener('change', e => {
+  PREF.adfOn = e.target.checked; savePref();
+  toast(PREF.adfOn ? 'M3U8 广告过滤已开启' : '已关闭过滤，将使用原始列表');
+  // 若正在播放 m3u8，按新设置重新加载当前集
+  if (CUR && lastRawUrl && /\.m3u8(\?|$)/i.test(lastRawUrl)) srcOf(curLine, curEp);
+});
+$('#autoNextCheck').addEventListener('change', e => { PREF.autoNext = e.target.checked; savePref(); });
+$('#skipIntroCheck').addEventListener('change', e => { PREF.skipIntro = e.target.checked; savePref(); toast(PREF.skipIntro ? `片头跳过已开启（${PREF.introSec}s）` : '片头跳过已关闭'); });
+$('#introSec').addEventListener('change', e => { PREF.introSec = Math.max(0, Number(e.target.value) || 0); e.target.value = PREF.introSec; introSkipped = false; savePref(); });
+$('#skipOutroCheck').addEventListener('change', e => { PREF.skipOutro = e.target.checked; savePref(); toast(PREF.skipOutro ? `片尾预留已开启（${PREF.outroSec}s）` : '片尾跳过已关闭'); });
+$('#outroSec').addEventListener('change', e => { PREF.outroSec = Math.max(0, Number(e.target.value) || 0); e.target.value = PREF.outroSec; savePref(); });
+$('#dlM3u8Btn').addEventListener('click', downloadFilteredM3u8);
+// video 元素常驻，仅绑定一次；换 src 不重建元素
+$('#video').addEventListener('loadedmetadata', () => {}); // 占位确保元素存在
+bindVideoEvents();
 
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
