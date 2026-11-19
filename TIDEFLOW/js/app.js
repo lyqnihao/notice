@@ -57,6 +57,18 @@
     localStorage.setItem(CONFIG.filterKey, state.filterOn ? '1' : '0');
   }
   const SCAN_KEY = 'tideflow_scan_v1';
+  const NSFW_KEY = 'tideflow_nsfw_manual_v1';
+  /* 手动 NSFW 标记：修正自动识别误判（true=敏感，false=正常），优先于默认判定 */
+  function loadNsfwManual() {
+    try {
+      const raw = localStorage.getItem(NSFW_KEY);
+      NSFW_MANUAL = raw ? (JSON.parse(raw) || {}) : {};
+    } catch (e) { NSFW_MANUAL = {}; }
+  }
+  function saveNsfwManual() {
+    try { localStorage.setItem(NSFW_KEY, JSON.stringify(NSFW_MANUAL)); } catch (e) { /* ignore */ }
+  }
+  loadNsfwManual();
   function saveScanResults() {
     try { localStorage.setItem(SCAN_KEY, JSON.stringify(state.scanResults)); } catch (e) { /* ignore */ }
   }
@@ -806,6 +818,9 @@
       state.filterOn = check.checked;
       saveFilter();
       renderFilterSwitch();
+      renderSourceModal();      // 源选项与被手动标记的源、NSFW 按钮随开关即时显隐
+      renderChips();
+      loadSourceCategories();
       showToast(state.filterOn ? '敏感内容过滤已开启（安全模式）' : '敏感内容过滤已关闭', state.filterOn ? 'ok' : '');
       loadFeed(true);
     });
@@ -910,13 +925,18 @@
           '<span class="metric">综合 <b style="color:' + (sourceScore(scan) >= 75 ? 'var(--green)' : sourceScore(scan) >= 50 ? 'var(--amber-2)' : 'var(--red)') + '">' + sourceScore(scan) + '</b> 分</span>'
         : '<span class="metric"><span class="state-dot bad"></span>' + esc(scan.note || '不可达') + '</span>';
     }
+    // 手动 NSFW 标记按钮：仅过滤关闭时显示（开启过滤时该按钮与敏感源选项一并隐藏）
+    const nsfwManualSet = Object.prototype.hasOwnProperty.call(NSFW_MANUAL, s.id);
+    const nsfwBtn = state.filterOn ? '' :
+      '<button class="nsfw-btn' + (isNsfwSource(s) ? ' on' : '') + '" data-nsfw="' + s.id + '" title="手动标记该源是否为敏感内容（可修正自动识别）">NSFW ' +
+        (isNsfwSource(s) ? '开' : '关') + (nsfwManualSet ? ' · 手动' : '') + '</button>';
     return '<div class="src-row" data-src="' + s.id + '">' +
       '<span class="name">' + esc(s.name) +
         '<span class="type ' + (s.type === 'api' ? 'api' : '') + '">' + (s.type === 'api' ? 'API 源' : '样片源') + '</span>' +
         (enabled ? '<span class="type" style="background:rgba(74,222,128,.12);color:var(--green)">启用中</span>' : '') +
       '</span>' +
       '<span class="desc">' + esc(s.desc) + '</span>' +
-      '<span class="metrics">' + metricsHtml +
+      '<span class="metrics">' + metricsHtml + nsfwBtn +
         '<label class="switch"><input type="checkbox" data-enable="' + s.id + '"' + (enabled ? ' checked' : '') + '><span class="track"></span></label>' +
       '</span>' +
     '</div>';
@@ -927,6 +947,7 @@
       const sid = row.dataset.src;
       row.addEventListener('click', (e) => {
         if (e.target.closest('.switch')) return; // 由 checkbox 处理
+        if (e.target.closest('[data-nsfw]')) return; // 由标记按钮处理
         const cb = row.querySelector('input[data-enable]');
         cb.checked = !cb.checked;
         cb.dispatchEvent(new Event('change'));
@@ -934,6 +955,19 @@
       row.querySelector('input[data-enable]').addEventListener('change', (e) => {
         e.stopPropagation();
         toggleSource(sid, e.target.checked);
+      });
+      const nsfwBtn = row.querySelector('[data-nsfw]');
+      if (nsfwBtn) nsfwBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const def = SOURCES.find((s) => s.id === sid);
+        if (!def) return;
+        // 手动标记优先于自动识别：已敏感则改为正常，反之标记为敏感
+        NSFW_MANUAL[sid] = !isNsfwSource(def);
+        saveNsfwManual();
+        renderSourceModal();
+        renderChips();
+        loadSourceCategories();
+        showToast('已将「' + def.name + '」手动标记为' + (NSFW_MANUAL[sid] ? '敏感（过滤开启时不显示）' : '正常（过滤开启时保留）'), 'ok');
       });
     });
   }
@@ -1133,6 +1167,7 @@
       favs: favs,
       sources: state.enabled,
       filterOn: state.filterOn,
+      nsfwManual: NSFW_MANUAL,
       configUrl: configUrl,
     };
     const json = JSON.stringify(data, null, 2);
@@ -1169,6 +1204,10 @@
         if (valid.length) { state.enabled = valid.slice(0, CONFIG.maxActive); saveEnabled(); }
       }
       if (typeof d.filterOn === 'boolean') { state.filterOn = d.filterOn; saveFilter(); }
+      if (d.nsfwManual && typeof d.nsfwManual === 'object') {
+        NSFW_MANUAL = d.nsfwManual;
+        saveNsfwManual();
+      }
       if (d.configUrl) { try { localStorage.setItem('tideflow_config_url_v1', d.configUrl); } catch (e) { /* ignore */ } }
       showToast('备份已导入，正在刷新…', 'ok');
       setTimeout(() => location.reload(), 900);

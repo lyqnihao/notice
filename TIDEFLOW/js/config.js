@@ -5,7 +5,7 @@
 const CONFIG = {
   name: '潮汐 TIDEFLOW',
   slogan: '全网免费视频聚合 · 直链播放 · 零广告',
-  version: '1.3.37',
+  version: '1.3.38',
   maxActive: 5,                // 同时启用的源上限（高速通道）
   storeKey: 'tideflow_sources_v1',
   filterKey: 'tideflow_filter_v1',
@@ -30,9 +30,14 @@ const FILTER_KEYWORDS = [
 
 const FILTER_SOURCE_HINT = /[🔞😈]|91md|麻豆|成人|情色|果冻|果豆|蜜桃|淫|av|xing|sex/i;
 
-/* 是否为敏感源（安全模式过滤对象）：源定义显式标记 nsfw 或源名命中关键词提示 */
+/* 手动 NSFW 标记（源 id -> true 敏感 / false 正常）：优先于自动识别，用于修正误判 */
+let NSFW_MANUAL = {};
+
+/* 是否为敏感源（安全模式过滤对象）：手动标记优先，其次源定义显式标记 nsfw，最后源名命中关键词 */
 function isNsfwSource(def) {
-  return !!(def && (def.nsfw || (def.name && FILTER_SOURCE_HINT.test(def.name))));
+  if (!def) return false;
+  if (Object.prototype.hasOwnProperty.call(NSFW_MANUAL, def.id)) return !!NSFW_MANUAL[def.id];
+  return !!(def.nsfw || (def.name && FILTER_SOURCE_HINT.test(def.name)));
 }
 
 /* ---------- 推广 / 广告条目过滤（数据层） ---------- */
