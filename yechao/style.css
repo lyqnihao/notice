@@ -235,6 +235,10 @@ img{display:block;max-width:100%}
   color:#fff;box-shadow:0 0 12px rgba(255,46,136,.45);padding:4px 6px;
 }
 .badge-fav svg{width:11px;height:11px;display:block}
+.badge-src{
+  bottom:7px;left:7px;background:rgba(3,4,8,.7);color:#9fe8ec;
+  border:1px solid rgba(45,226,230,.3);font-weight:600;
+}
 .play-hint{
   position:absolute;inset:0;z-index:3;display:grid;place-items:center;opacity:0;
   transition:opacity .2s;pointer-events:none;
@@ -441,8 +445,8 @@ img{display:block;max-width:100%}
   .cats-in{padding:8px 13px;gap:7px}
   .cat{height:29px;padding:0 12px;font-size:12.5px}
 
-  .toolbar{margin-top:15px;padding-bottom:0}
-  /* tabs 吸到底部当主导航 */
+  /* tabs 吸底导航必须压过 main.wrap 的卡片层，否则有内容时卡片会拦截点击 */
+  .toolbar{margin-top:15px;padding-bottom:0;z-index:80}
   .tabs{
     position:fixed;left:0;right:0;bottom:0;z-index:70;gap:0;
     height:calc(var(--tab-h) + env(safe-area-inset-bottom,0px));

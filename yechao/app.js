@@ -134,6 +134,7 @@ function norm(v) {
     content: v.vod_content || v.vod_blurb || '',
     actor: v.vod_actor || '', director: v.vod_director || '',
     tags: v.vod_tag ? String(v.vod_tag).split(/[,，\/]/).filter(Boolean) : [],
+    src: v._src || '',
     _raw: v,
   };
 }
@@ -176,6 +177,7 @@ function card(v, opt = {}) {
     ${opt.rank ? `<span class="rk">${opt.rank}</span>` : ''}
     <div class="thumb">
       ${code ? `<span class="badge badge-tag">${esc(code)}</span>` : ''}
+      ${v.src ? `<span class="badge badge-src" title="来源线路：${esc(v.src)}">${esc(v.src)}</span>` : ''}
       ${v.rem ? `<span class="badge badge-hd">${esc(v.rem)}</span>` : ''}
       ${isFav(v.id) ? `<span class="badge badge-fav" title="已收藏">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 20.5s-7.5-4.6-7.5-9.6A4.4 4.4 0 0 1 12 8a4.4 4.4 0 0 1 7.5 2.9c0 5-7.5 9.6-7.5 9.6Z"/></svg>
@@ -255,13 +257,29 @@ function listParams(pg) {
   };
 }
 
+// 线路名简化：去常见后缀词 + 截前6字，用于卡片角标和播放页线路按钮
+function shortSrc(s) {
+  let x = String(s || '').trim();
+  x = x.replace(/(影视资源站|影视资源|影视在线|资源在线|资源站|\bIMTV\b|\bTV\b|影视|资源|在线|官网|视频|影院|传媒|联盟|播放|专区|频道|导航|数据)/gi, '').trim();
+  x = x.replace(/[·\-_\s]+$/, '').trim();
+  x = x.replace(/[站网]$/, '').trim();
+  if (!x) x = String(s || '').trim();
+  return x.length > 6 ? x.slice(0, 6) : (x || '线路');
+}
+// 当前取数线路的资源站名（api() failover 后 S.line 已是实际成功的线路）
+function currentSrcName() {
+  const s = window.SourceManager?.sourceAt?.(S.line);
+  return shortSrc(s?.name || '');
+}
+
 async function fetchPage(pg) {
   // videolist 返回完整字段（含 vod_pic 封面 + vod_play_url 播放地址），
   // ac=list 只有 8 个字段没有图，列表页会全是空白
   const d = await api(listParams(pg));
   if (d?.pagecount) S.pages = d.pagecount;
   if (d?.total != null) S.total = d.total;
-  return (d?.list || []).filter(x => x.vod_id);
+  const src = currentSrcName();
+  return (d?.list || []).filter(x => x.vod_id).map(x => ({ ...x, _src: src }));
 }
 
 // 并发预载多页（首屏提速）
@@ -467,8 +485,10 @@ const PREF = Object.assign(
 );
 const savePref = () => { try { localStorage.setItem('nc_player_pref_v1', JSON.stringify(PREF)); } catch (_) {} };
 
-/* 解析 vod_play_url：$$$ 分隔线路，每条线路内 # 分隔剧集，最后 $ 后为地址 */
-function parsePlayLines(urlStr) {
+/* 解析 vod_play_url：$$$ 分隔线路，每条线路内 # 分隔剧集，最后 $ 后为地址
+   fromStr = vod_play_from（苹果CMS 的线路名，同样用 $$$ 分隔），缺失则回退「线路N」 */
+function parsePlayLines(urlStr, fromStr) {
+  const froms = String(fromStr || '').split('$$$');
   return String(urlStr || '').split('$$$').map((line, li) => {
     const eps = line.split('#').map(s => {
       const i = s.lastIndexOf('$');
@@ -476,7 +496,8 @@ function parsePlayLines(urlStr) {
       const u = s.slice(i + 1).trim();
       return u ? { name: s.slice(0, i).trim() || '播放', url: u } : null;
     }).filter(Boolean);
-    return { name: '线路 ' + (li + 1), eps };
+    const rawName = shortSrc(froms[li] || '') || ('线路 ' + (li + 1));
+    return { name: rawName, fullName: String(froms[li] || '').trim() || ('线路 ' + (li + 1)), eps };
   }).filter(l => l.eps.length);
 }
 
@@ -507,7 +528,7 @@ async function play(id) {
     $('#pTitle').textContent = v.name || '播放';
     $('#pFav').classList.toggle('faved', isFav(v.id));
 
-    PLAY_LINES = parsePlayLines(v.url);
+    PLAY_LINES = parsePlayLines(v.url, v._raw?.vod_play_from);
     if (!PLAY_LINES.length) throw new Error('no source');
     curLine = 0; curEp = 0;
     renderLines();
@@ -534,7 +555,7 @@ function renderLines() {
   const box = $('#lines');
   if (!box) return;
   box.innerHTML = PLAY_LINES.map((l, i) =>
-    `<button class="line-btn${i === curLine ? ' on' : ''}" data-line="${i}">${esc(l.name)}${l.eps.length > 1 ? ' · ' + l.eps.length + '集' : ''}</button>`
+    `<button class="line-btn${i === curLine ? ' on' : ''}" data-line="${i}" title="${esc(l.fullName || l.name)}">${esc(l.name)}${l.eps.length > 1 ? ' · ' + l.eps.length + '集' : ''}</button>`
   ).join('');
   $('#pLineHint').textContent = `${PLAY_LINES.length} 条线路`;
 }
