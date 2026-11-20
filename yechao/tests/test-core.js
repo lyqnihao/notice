@@ -267,6 +267,38 @@ T('lunaRelay 拼接', () => {
     'https://r/?url=' + encodeURIComponent('https://a.com/x?y=1'));
 });
 
+/* ===== v3.2.1 新增测试 ===== */
+T('v3.2.1 内置默认中继已配置（参考 TIDEFLOW）', () => {
+  assert.ok(NC.DEFAULT_RELAY && /^https?:\/\//.test(NC.DEFAULT_RELAY), '默认中继应为 http(s) 地址');
+  assert.ok(NC.DEFAULT_RELAY.indexOf('url=') > -1, '默认中继应含 url= 参数');
+});
+T('v3.2.1 不传 relay 时 lunaRelay 使用内置默认（开箱即用）', () => {
+  const out = NC.lunaRelay('https://a.com/api.php/provide/vod');
+  assert.ok(out && out.indexOf(encodeURIComponent('https://a.com/api.php/provide/vod')) > -1, '应使用默认中继拼接');
+});
+T('v3.2.1 自定义 relay 覆盖内置默认', () => {
+  const out = NC.lunaRelay('https://a.com/x', 'https://my.worker/?url=');
+  assert.strictEqual(out, 'https://my.worker/?url=' + encodeURIComponent('https://a.com/x'));
+});
+T('v3.2.1 NSFW 中文敏感词识别', () => {
+  assert.strictEqual(NC.isNsfwText('成人影片'), true);
+  assert.strictEqual(NC.isNsfwText('色情内容'), true);
+  assert.strictEqual(NC.isNsfwText('正常电影 动作片'), false);
+});
+T('v3.2.1 NSFW 拉丁词按边界识别（不过度误杀）', () => {
+  assert.strictEqual(NC.isNsfwText('porn video'), true);
+  assert.strictEqual(NC.isNsfwText('ordinary movie'), false); // internal 'ordinary' 不含独立 adult/sex 等
+});
+T('v3.2.1 isNsfwSource 显式标记与名称提示', () => {
+  assert.strictEqual(NC.isNsfwSource({ name: '普通站', nsfw: true }), true);
+  assert.strictEqual(NC.isNsfwSource({ name: '91麻豆资源' }), true);
+  assert.strictEqual(NC.isNsfwSource({ name: '爱奇艺' }), false);
+});
+T('v3.2.1 订阅线路携带 nsfw 字段', () => {
+  const r = NC.parseSubscription([{ name: '敏感站', api: 'https://a.com/api.php/provide/vod' }]);
+  assert.strictEqual(typeof r.sources[0].nsfw, 'boolean');
+});
+
 (async () => {
   // 等待所有异步测试真正完成再汇总，确保结果真实
   await Promise.all(asyncTests);

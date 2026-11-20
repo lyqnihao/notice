@@ -1,5 +1,5 @@
 /* ============================================================
-   夜潮 NOCTIDE v3.2.0 —— 核心纯逻辑模块 signal-core.js
+   夜潮 NOCTIDE v3.2.2 —— 核心纯逻辑模块 signal-core.js
    无 DOM 依赖：浏览器挂到 window.NC，Node 端可 require 做单元测试。
    覆盖：时间格式化 / Base58 / M3U8 广告过滤 / 订阅解析 /
          订阅增量合并 / 请求模式与中继 / 错误分类。
@@ -330,6 +330,7 @@
         detail: String(r.detail || ''),
         tags: toTags(pick(r, TAG_KEYS)),
         enabled: toBool(pick(r, ENABLE_KEYS) !== '' ? pick(r, ENABLE_KEYS) : true),
+        nsfw: isNsfwSource({ name, nsfw: r.nsfw }),
         origin: 'subscription',
         type: r.type, priority: r.priority,
         proxyMode: r.proxyMode || '', customProxy: r.customProxy || '',
@@ -399,12 +400,36 @@
 
   /* ── 请求模式与中继 ────────────────────────────────────────── */
 
-  const DEFAULT_RELAY = ''; // 候选公共 relay 仅作参考，默认留空由用户配置（隐私/安全）
+  // 参考 TIDEFLOW：内置一个默认中继，使「直连失败回退」开箱即用。
+  // 公共代理有隐私/日志风险：用户可在资源站管理里填入自己的 relay 覆盖，
+  // 或选择「纯直连」彻底不走代理。此地址仅为候选，不保证长期可用。
+  const DEFAULT_RELAY = 'https://pz.v88.qzz.io/?url=';
 
   function lunaRelay(url, relayBase) {
     const base = String(relayBase || DEFAULT_RELAY || '').trim();
     if (!base) return '';
     return base + encodeURIComponent(url);
+  }
+
+  // 站点级内容安全过滤：命中敏感关键词/敏感源则判为 NSFW（参考 TIDEFLOW config.js）
+  const NSFW_KEYWORDS = [
+    'porn', 'xxx', 'nsfw', 'adult', 'erotic', 'erotica', 'hentai', 'sex', 'sexual', 'nude', 'naked',
+    '成人', '色情', '情色', '淫', '露点', '性爱', '裸体', '三级片', '18禁', '麻豆', '果冻', '蜜桃', '淫媒', '情欲', '约炮', '萝莉', '迷奸', '偷情'
+  ].map(k => k.toLowerCase());
+  const NSFW_SOURCE_HINT = /[🔞😈]|91md|麻豆|成人|情色|果冻|果豆|蜜桃|淫|成人视频|av女优/i;
+  function isNsfwText(text) {
+    const hay = String(text || '').toLowerCase();
+    if (!hay) return false;
+    if (NSFW_SOURCE_HINT.test(hay)) return true;
+    for (const k of NSFW_KEYWORDS) {
+      if (/^[\x00-\x7f]+$/.test(k)) { if (new RegExp('\\b' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b').test(hay)) return true; }
+      else if (hay.indexOf(k) > -1) return true;
+    }
+    return false;
+  }
+  // 判断一条线路是否为 NSFW（显式标记 or 名称命中提示词）
+  function isNsfwSource(s) {
+    return !!(s && (s.nsfw || (s.name && NSFW_SOURCE_HINT.test(String(s.name)))));
   }
 
   function withTimeout(promise, ms) {
@@ -417,7 +442,7 @@
   /* 统一 fetch：根据 mode 决定直连/中继顺序。fetchImpl 可注入以便测试。 */
   async function fetchWithMode(url, opts) {
     const o = opts || {};
-    const mode = o.mode || 'fallback'; // direct | relay-first | fallback
+    const mode = o.mode || 'relay-first'; // relay-first | fallback | direct（默认优先中继，对齐 TIDEFLOW）
     const timeout = o.timeout || 10000;
     const relayBase = o.relay || DEFAULT_RELAY;
     const fetchImpl = o.fetchImpl || (typeof fetch !== 'undefined' ? fetch : null);
@@ -482,6 +507,6 @@
     validateApiUrl, parseSubscription, parseSubscriptionFromText, mergeSubscription,
     looksLikeTvBox, normApi, stableId,
     lunaRelay, fetchWithMode, withTimeout, classifyError, isHtml,
-    DEFAULT_RELAY,
+    DEFAULT_RELAY, isNsfwText, isNsfwSource,
   };
 });

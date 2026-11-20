@@ -80,6 +80,7 @@
   <div class="wrap ft-in">
     <span class="ft-brand">夜潮 · NOCTIDE</span>
     <span class="ft-note">资源来自网络采集，仅供个人学习交流</span>
+    <span class="ft-ver" id="appVer" title="当前版本">v—</span>
   </div>
 </footer>
 
@@ -134,6 +135,11 @@
         <input type="range" id="progBar" min="0" max="1000" value="0" step="1" aria-label="播放进度" title="播放进度（可拖动）">
         <span class="prog-dur" id="progDur">LIVE</span>
       </div>
+      <!-- 片头/片尾跳过：简洁一行，紧随进度条下方 -->
+      <div class="skip-row" id="skipRow" hidden>
+        <label class="skip-item" title="开启后，播放开始自动跳过片头秒数"><span class="switch"><input type="checkbox" id="skipIntroCheck"><span class="track"></span></span><span>片头</span><input type="number" id="introSec" min="0" max="600" value="0" aria-label="片头跳过秒数">秒</label>
+        <label class="skip-item" title="开启后，播放到结尾前预留秒数触发下一集"><span class="switch"><input type="checkbox" id="skipOutroCheck"><span class="track"></span></span><span>片尾</span><input type="number" id="outroSec" min="0" max="600" value="0" aria-label="片尾预留秒数">秒</label>
+      </div>
 
       <!-- ② 播放线路选择 -->
       <div class="p-block" id="lineBlock">
@@ -167,10 +173,6 @@
         </div>
         <label class="p-tool"><span>自动下一集</span>
           <span class="switch"><input type="checkbox" id="autoNextCheck" checked><span class="track"></span></span></label>
-        <label class="p-tool"><span>片头跳过 <input type="number" id="introSec" min="0" max="600" value="0" aria-label="片头跳过秒数"> 秒</span>
-          <span class="switch"><input type="checkbox" id="skipIntroCheck"><span class="track"></span></span></label>
-        <label class="p-tool"><span>片尾预留 <input type="number" id="outroSec" min="0" max="600" value="0" aria-label="片尾预留秒数"> 秒</span>
-          <span class="switch"><input type="checkbox" id="skipOutroCheck"><span class="track"></span></span></label>
       </div>
 
       <!-- ⑥ 相关推荐 -->
@@ -206,18 +208,23 @@
       <section class="sm-section"><div class="sm-section-head"><div><h3>请求模式</h3><p>直连 / 中继，用于跨域资源检测与订阅获取</p></div></div>
         <div class="sm-setting-row"><label>请求模式
           <select id="smReqMode">
+            <option value="relay-first" selected>优先使用 relay（推荐）</option>
+            <option value="fallback">直连失败后自动 relay</option>
             <option value="direct">纯直连</option>
-            <option value="relay-first">优先使用 relay</option>
-            <option value="fallback" selected>直连失败后自动 relay（推荐）</option>
           </select>
         </label></div>
-        <div class="sm-setting-row"><label>中继地址（relay）
-          <input id="smRelay" type="url" placeholder="https://你的worker.example/?url="></label></div>
+        <div class="sm-setting-row"><label>中继地址（relay，留空则使用内置默认）
+          <input id="smRelay" type="url" placeholder="留空使用内置中继 https://pz.v88.qzz.io/?url="></label></div>
         <div class="sm-setting-row"><label>请求超时（毫秒）
           <input id="smTimeout" type="number" min="2000" max="30000" step="1000" value="10000"></label></div>
-        <p class="sm-hint">候选公共中继 https://pz.v88.qzz.io/?url= 已实测可用，但公共代理有隐私与日志风险；留空则只走直连。中继仅发送目标 URL，请勿传入敏感地址。</p>
+        <p class="sm-hint">参考 TIDEFLOW，默认「优先中继」：采集站接口直接走内置中继 https://pz.v88.qzz.io/?url=，直连兜底，开箱即用（浏览器直连采集站通常会被跨域拦截）。填入自己的 worker 地址可覆盖内置中继；选「纯直连」则完全不走代理（采集站多半连不上）。公共代理有隐私与日志风险，中继仅发送目标 URL，请勿传入敏感地址。</p>
       </section>
-      <p class="sm-footnote">勾选框仅用于批量操作，不影响采集；启用开关决定线路是否参与采集，禁用线路仍可手动检测。配置仅保存在当前浏览器。</p>
+      <section class="sm-section"><div class="sm-section-head"><div><h3>内容安全</h3><p>NSFW 过滤：开启后隐藏敏感线路与视频内容</p></div></div>
+        <label class="p-tool"><span>过滤 NSFW 内容（敏感线路与影片）<em id="nsfwNote"></em></span>
+          <span class="switch"><input type="checkbox" id="smNsfwFilter" checked><span class="track"></span></span></label>
+        <p class="sm-hint">可逐条线路点击「🔞 NSFW」按钮标记敏感源；开启本开关后，被标记线路不参与采集、在本管理页与首页一并隐藏，标题/标签命中敏感词的影片也会从首页隐藏。关闭本开关即可恢复显示全部线路（含已标记的）。</p>
+      </section>
+      <p class="sm-footnote">勾选框仅用于批量操作，不影响采集；启用开关决定线路是否参与采集（最多启用 5 条），禁用线路仍可手动检测；新导入线路默认不启用。配置仅保存在当前浏览器。</p>
     </div>
   </section>
 </div>

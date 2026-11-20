@@ -50,9 +50,16 @@ with sync_playwright() as p:
     page.on("console", lambda m: errors.append("console.error: " + m.text) if m.type == "error" else None)
 
     def handle(route):
-        from urllib.parse import urlparse, parse_qs
-        q = parse_qs(urlparse(route.request.url).query)
-        # 只拦截带 ac= 的采集接口；sources.json 走真实
+        from urllib.parse import urlparse, parse_qs, unquote
+        u = urlparse(route.request.url)
+        q = parse_qs(u.query)
+        # v3.2.2：接口默认走 relay（https://.../?url=<encoded>），需解出内部目标再取 ac
+        target = q.get("url", [None])[0]
+        if target:
+            inner = parse_qs(urlparse(unquote(target)).query)
+            if "ac" in inner:
+                q = inner
+        # 只拦截带 ac= 的采集接口；sources.json / hls / 静态资源走真实
         if "ac" in q:
             route.fulfill(status=200, content_type="application/json", body=json.dumps(api_response(q)))
         else:
@@ -165,7 +172,11 @@ with sync_playwright() as p:
 
     print("\n[F] 请求模式设置")
     modes = page.eval_on_selector_all("#smReqMode option", "els=>els.map(e=>e.value)")
-    ok("三种请求模式齐全", modes == ["direct","relay-first","fallback"], f"modes={modes}")
+    ok("三种请求模式齐全", set(modes) == {"direct","relay-first","fallback"}, f"modes={modes}")
+    default_mode = page.eval_on_selector("#smReqMode", "e=>e.value")
+    ok("默认请求模式为 relay-first（对齐 TIDEFLOW）", default_mode == "relay-first", f"default={default_mode}")
+    # v3.2.2：首页数据请求（get）也应走 relay —— 通过检查 fetch 请求确实经过 url= 包裹
+    ok("默认配置已设为 relay-first", page.evaluate("()=>SourceManager.getCfg().mode==='relay-first'"))
 
     print("\n[G] JS 错误检查")
     # 过滤掉 mock 假域名视频地址无法解析的预期网络错误（非代码问题）

@@ -73,7 +73,21 @@ function buildURL(base, params) {
 }
 
 async function get(base, params) {
-  const r = await withTimeout(fetch(buildURL(base, params), { headers: { Accept: 'application/json' } }));
+  // v3.2.2：与 TIDEFLOW 对齐，采集站接口统一走统一请求封装（默认 relay-first，
+  // 浏览器对采集站直连几乎必然 CORS 失败，优先中继才能正常加载）。
+  // 旧版本这里是裸 fetch，导致「检测正常但实际首页/播放取不到数据」。
+  const u = buildURL(base, params).href;
+  const cfg = (window.SourceManager && SourceManager.getCfg) ? SourceManager.getCfg() : {};
+  if (window.NC && NC.fetchWithMode) {
+    const out = await NC.fetchWithMode(u, {
+      mode: cfg.mode || 'relay-first', relay: cfg.relay || '', timeout: cfg.timeout || 9000,
+      fetchOptions: { headers: { Accept: 'application/json' }, cache: 'no-store' },
+    });
+    if (!out.response.ok) throw new Error('HTTP ' + out.response.status);
+    return await out.response.json();
+  }
+  // 兜底：核心模块缺失时退回直连（不应发生）
+  const r = await withTimeout(fetch(u, { headers: { Accept: 'application/json' } }), (cfg.timeout || 9000));
   if (!r.ok) throw new Error('HTTP ' + r.status);
   return await r.json();
 }
@@ -124,12 +138,20 @@ function norm(v) {
   };
 }
 
+/* NSFW 内容级过滤：过滤开启时，标题/分类/标签/简介命中敏感词则隐藏 */
+function nsfwHidden(n) {
+  if (!(window.SourceManager && SourceManager.nsfwFilterOn && SourceManager.nsfwFilterOn())) return false;
+  if (NC.isNsfwText && NC.isNsfwText([n.name, n.cat, (n.tags || []).join(' '), n.content].join(' '))) return true;
+  return false;
+}
+
 function merge(list) {
   const seen = new Set(S.pool.map(x => String(x.id)));
   let add = 0;
   list.forEach(v => {
     const n = norm(v);
     if (!n.id || seen.has(String(n.id))) return;
+    if (nsfwHidden(n)) return;
     seen.add(String(n.id)); S.pool.push(n); add++;
   });
   return add;
@@ -466,6 +488,7 @@ async function play(id) {
   document.body.style.overflow = 'hidden';
   $('#pTitle').textContent = '加载中…';
   $('#progRow').hidden = true;
+  const sr0 = $('#skipRow'); if (sr0) sr0.hidden = true;
   ['#lines', '#eps', '#pDetail', '#pChips', '#relGrid'].forEach(s => { const el = $(s); if (el) el.innerHTML = ''; });
   $('#filterNote').textContent = '—';
   hideFallback();
@@ -611,7 +634,10 @@ let progDragging = false;
 function progEls() {
   return { row: $('#progRow'), bar: $('#progBar'), cur: $('#progCur'), dur: $('#progDur') };
 }
-function showProg() { const r = progEls().row; if (r) r.hidden = false; }
+function showProg() {
+  const r = progEls().row; if (r) r.hidden = false;
+  const s = $('#skipRow'); if (s) s.hidden = false; // 片头片尾行紧随进度条一起显示
+}
 function updProg() {
   const { bar, cur, dur } = progEls();
   const video = $('#video');
@@ -857,6 +883,7 @@ function closePlayer() {
   $('#pmask').hidden = true;
   hideFallback();
   $('#progRow').hidden = true;
+  const sr1 = $('#skipRow'); if (sr1) sr1.hidden = true;
   document.body.style.overflow = '';
   if (v) { v.pause(); v.removeAttribute('src'); v.load(); }
   if (hls) { hls.destroy(); hls = null; }
@@ -1087,9 +1114,22 @@ $('#q').addEventListener('input', e => {
 });
 $('#searchForm').addEventListener('submit', e => e.preventDefault());
 
+/* ── 版本号显示：读取 version.json，跟随版本更新，无需手改 ── */
+async function paintVersion() {
+  const el = $('#appVer'); if (!el) return;
+  try {
+    const r = await fetch('./version.json', { cache: 'no-store' });
+    if (!r.ok) throw new Error('http');
+    const d = await r.json();
+    const v = String(d.version || '').trim();
+    if (v) el.textContent = 'v' + (v.startsWith('v') ? v.slice(1) : v);
+  } catch (_) { el.textContent = ''; } // 读取失败则不显示，避免误导
+}
+
 /* ── 启动 ───────────────────────────── */
 paintFavN();
 paintFilterBtn();
+paintVersion();
 $('#app').innerHTML = skeleton();
 SourceManager.init().then(() => {
   S.line = Math.max(0, SourceManager.active());
