@@ -29,7 +29,7 @@ def mock_route(route):
         body = {"class": CATS, "list": []} if ac == "list" else {"pagecount": 1, "total": 7, "list": VODS}
         route.fulfill(status=200, content_type="application/json", body=json.dumps(body))
     elif route.request.url.endswith("version.json"):
-        route.fulfill(status=200, content_type="application/json", body=json.dumps({"version": "3.2.2"}))
+        route.fulfill(status=200, content_type="application/json", body=json.dumps({"version": "3.2.3"}))
     else:
         route.continue_()
 
@@ -49,7 +49,7 @@ with sync_playwright() as p:
 
     print("\n[V3.2.1-A] 版本号显示（左下角、读 version.json）")
     ver = pg.locator("#appVer").inner_text().strip()
-    ok("左下角版本号显示 v3.2.2", ver == "v3.2.2", f"实际={ver!r}")
+    ok("左下角版本号显示 v3.2.3", ver == "v3.2.3", f"实际={ver!r}")
 
     print("\n[V3.2.1-B] 打开资源站管理，检查 5 条上限与默认状态")
     pg.click("#sourceManageBtn")
