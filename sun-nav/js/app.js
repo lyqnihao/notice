@@ -1,9 +1,9 @@
-/* ===== Sun Nav 导航页逻辑 v1.4.1（引擎云端同步 + 弹窗防误关） ===== */
+/* ===== Sun Nav 导航页逻辑 v1.4.2（引擎删除修复 + 完整备份 + 弹窗滚动） ===== */
 (function () {
 'use strict';
 
 /* ---------- 版本号（侧栏底部展示，修改时同步 README / data.js 头部注释） ---------- */
-var APP_VERSION = 'v1.4.1';
+var APP_VERSION = 'v1.4.2';
 /* 重置后保留的固定功能分组名 */
 var TOOL_GROUP_TITLE = '功能工具';
 
@@ -65,6 +65,12 @@ function saveCustomEngines(list) {
 }
 function persistEngineSelection() {
   try { localStorage.setItem(LS_ENGINE, JSON.stringify(Array.from(state.engines))); } catch (e) {}
+}
+/* 引擎稳定唯一键：优先 id，回退 name+url（用于删除/去重的引用无关比较） */
+function engineKey(en) {
+  if (!en) return '';
+  if (en.id && en.id !== 'custom') return 'id:' + en.id;
+  return 'nu:' + String(en.name || '') + '||' + String(en.url || '');
 }
 function engineUrl(en, q) {
   if (en.url.indexOf('{q}') >= 0) return en.url.replace('{q}', encodeURIComponent(q));
@@ -590,7 +596,10 @@ function renderEngineList() {
     var del = el('button', 'del', '删除');
     del.addEventListener('click', function () {
       if (!confirm('删除搜索引擎「' + en.name + '」？')) return;
-      saveCustomEngines(getEngines().filter(function (x) { return x !== en; }));
+      // 修复：getEngines() 每次重建对象，引用比较（x !== en）永远成立导致删不掉；
+      // 改为按稳定的 name+url 复合键比较，确保真正移除目标引擎。
+      var key = engineKey(en);
+      saveCustomEngines(getEngines().filter(function (x) { return engineKey(x) !== key; }));
       state.engines.delete(en.id || en.name);
       persistEngineSelection();
       saveData();
@@ -1203,6 +1212,21 @@ function toBookmarksHtml(groups) {
   return L.join('\n');
 }
 /* 管理面板：把导入/导出/重置收进「管理」按钮展开区（仿引擎） */
+/* 本站完整备份格式（v1.4.2）：站点 + 自定义引擎 + 勾选状态一并导出/还原，
+   与 KV / WebDAV 的 {groups, engines, engineSel} 结构一致。旧的 Sun-Panel JSON
+   与 HTML 书签两种格式保持不变，三者并存、互不覆盖。 */
+var FULL_FORMAT = 'sunnav-full';
+function toFullBackup() {
+  return {
+    format: FULL_FORMAT,
+    version: 2,
+    appVersion: APP_VERSION,
+    exportTime: fmtDate(new Date()),
+    groups: state.groups,
+    engines: getEngines(),
+    engineSel: Array.from(state.engines)
+  };
+}
 function hideManage() { var p = $('managePanel'); if (p) p.classList.add('hidden'); }
 $('manageBtn').addEventListener('click', function (e) {
   e.stopPropagation();
@@ -1216,6 +1240,14 @@ $('manageExpJson').addEventListener('click', function () {
 $('manageExpHtml').addEventListener('click', function () {
   var fname = 'bookmarks-' + fmtDate(new Date()).replace(/[-: ]/g, '') + '.html';
   doExport(fname, toBookmarksHtml(state.groups), 'text/html');
+});
+/* 完整备份文件名：SunNav-Backup<时间戳>.<当前版本>.json
+   版本号取 APP_VERSION，升级版本后自动跟随，不写死 */
+function fullBackupFilename() {
+  return 'SunNav-Backup' + fmtDate(new Date()).replace(/[-: ]/g, '') + '.' + APP_VERSION + '.json';
+}
+$('manageExpFull').addEventListener('click', function () {
+  doExport(fullBackupFilename(), JSON.stringify(toFullBackup(), null, 2), 'application/json');
 });
 function dedupKey(it) { return ((it.title || '').trim().toLowerCase() + '||' + (it.url || '').trim().toLowerCase()); }
 /* 合并去重：同名分类并入现有，同名同链接自动排除 */
@@ -1314,6 +1346,18 @@ function parseBookmarksHtml(htmlText) {
   parseBookmarkDl(root, groups, null);
   return groups.filter(function (g) { return g.items.length > 0; });
 }
+/* 识别本站完整备份格式（v1.4.2），返回 {groups, engines, engineSel}；非该格式返回 null */
+function parseFullBackup(text) {
+  var s = String(text || '').trim();
+  if (s.charAt(0) !== '{') return null;
+  try {
+    var d = JSON.parse(text);
+    if (d && d.format === FULL_FORMAT && Array.isArray(d.groups)) {
+      return { groups: d.groups, engines: d.engines || [], engineSel: d.engineSel || [] };
+    }
+  } catch (e) {}
+  return null;
+}
 /* 自动识别导入来源：JSON（本应用/Sun-Panel）或浏览器书签 HTML */
 function parseAnyImport(text) {
   var s = text.trim();
@@ -1325,19 +1369,50 @@ function parseAnyImport(text) {
   }
   throw new Error('无法识别的格式（需 JSON 或浏览器书签 HTML）');
 }
+/* 应用完整备份里的引擎配置：
+   覆盖模式 = 用备份的引擎列表与勾选整体替换；合并/追加 = 按 name+url 并入，保留本机独有引擎。*/
+function applyFullBackupEngines(full, mode) {
+  if (!full) return;
+  var incoming = normalizeCustomEngines(full.engines || []);
+  if (mode === 'replace') {
+    saveCustomEngines(incoming);
+    var all = getEngines();
+    state.engines = new Set(migrateEngineSelection(full.engineSel || [], all));
+  } else {
+    var cur = getEngines().slice();
+    var keys = {};
+    cur.forEach(function (en) { keys[engineKey(en)] = 1; });
+    incoming.forEach(function (en) { var k = engineKey(en); if (!keys[k]) { cur.push(en); keys[k] = 1; } });
+    saveCustomEngines(cur);
+    var all2 = getEngines();
+    (full.engineSel || []).forEach(function (id) { state.engines.add(id); });
+    // 丢弃指向已不存在引擎的勾选
+    var valid = {};
+    all2.forEach(function (en) { valid[en.id || en.name] = 1; });
+    Array.from(state.engines).forEach(function (id) { if (!valid[id]) state.engines.delete(id); });
+  }
+  persistEngineSelection();
+  renderEngines();
+}
 function doImport(text) {
   var mode = currentMode();
-  var incoming = parseAnyImport(text);
+  var full = parseFullBackup(text);       // 完整备份（含引擎）优先识别
+  var incoming = full ? full.groups : parseAnyImport(text);
   if (!incoming.length) throw new Error('没有可导入的站点');
+  var confirmMsg = mode === 'replace'
+    ? (full ? '覆盖导入将清空当前全部站点与搜索引擎配置并替换为备份内容，确定？'
+            : '覆盖导入将清空当前全部站点并替换为备份内容，确定？')
+    : null;
   if (mode === 'replace') {
-    if (!confirm('覆盖导入将清空当前全部站点并替换为备份内容，确定？')) { closeModal(); return; }
+    if (!confirm(confirmMsg)) { closeModal(); return; }
     state.groups = incoming;
   } else if (mode === 'merge') {
     state.groups = mergeGroups(state.groups, incoming);
   } else {
     state.groups = state.groups.concat(appendGroups(incoming, state.groups));
   }
-  saveData(); renderTree(); renderContent();
+  applyFullBackupEngines(full, mode);      // 非完整备份时为空操作，旧两种格式行为不变
+  saveData(); renderTree(); renderContent(); renderEngines();
   toast(mode === 'replace' ? '已覆盖导入' : mode === 'merge' ? '已合并去重导入' : '已追加导入');
   closeModal();
 }

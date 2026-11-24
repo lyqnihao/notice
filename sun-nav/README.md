@@ -7,7 +7,7 @@
 >
 > ⚠️ **数据层随部署方式而变，且各部署相互独立**：只有 **Cloudflare Worker + KV** 部署具备**服务端数据库**（KV 键值库）与多端同步；在线预览站、GitHub Pages 等纯静态部署**没有服务端数据库**，数据存各自浏览器 localStorage，彼此不共享、也不跨设备同步。详见下方「数据层与部署独立性」。
 
-当前版本：**v1.4.1**
+当前版本：**v1.4.2**
 
 ## 功能特性
 
@@ -21,7 +21,7 @@
 - **分类与卡片均可排序**：桌面端直接拖拽；任意端（含手机）也可用右键菜单**上移/下移**。分类支持右键重命名、添加站点、删除。
 - **左侧可折叠分类树**：点击切换分类、显示"全部站点"，固定分类带"固定"标记，窄屏自动收纳。
 - **增删改**：页面按钮即可完成（+分类、+添加站点、编辑、删除），数据自动保存；
-  **导出可选格式**（Sun-Panel JSON / 浏览器 HTML 书签），**导入自动识别**本应用 JSON、**Sun-Panel v1.x 备份（可直接上传 `.zip` 压缩包，自动解压读取内部 config.json，无需手动解压）**、Chrome/Edge/Firefox 书签 HTML 三种来源。（注：Sun-Panel v2 导出格式存疑，兼容性待验证，暂不主推）
+  **导出可选格式**（**完整备份(含引擎)** / Sun-Panel JSON / 浏览器 HTML 书签），**导入自动识别**本站完整备份、本应用 JSON、**Sun-Panel v1.x 备份（可直接上传 `.zip` 压缩包，自动解压读取内部 config.json，无需手动解压）**、Chrome/Edge/Firefox 书签 HTML 四种来源。**完整备份(含引擎)**：本站专用格式 `SunNav-Backup<时间戳>.<版本号>.json`（版本号取导出时的 `APP_VERSION`，如 `SunNav-Backup20261124210400.v1.4.2.json`，升级版本自动跟随、不写死），把站点 + 自定义引擎 + 勾选状态一并保存，导入时「覆盖」会整体还原引擎配置、「合并/追加」会并入引擎并保留本机独有项，彻底解决换机/迁移时自定义引擎丢失；旧两种格式（给 Sun-Panel / 浏览器用）仍不含引擎、行为不变。（注：Sun-Panel v2 导出格式存疑，兼容性待验证，暂不主推）
 - **重置**：清空所有自建/导入数据，**只保留「功能工具」一个分组**（含 IP 监控、日历时钟两个功能卡及其网络检测站点），回到干净的初始状态。
 - **云端同步与访问控制（Cloudflare 为主）**：顶部「管理」按钮展开区统一收纳导入/导出/重置、本地密码与同步状态；接入 Cloudflare KV 后多端实时同步（前端经同域 `/api/data` 读写，自动一致）；可设访问密码锁（仿 Sun-Panel，仅密码、本机可记住）；支持坚果云 WebDAV 每日定时备份（详见「部署 → 工作原理」）。无 Cloudflare 后端时自动降级为本地存储，但仍可在「管理 → 本地访问密码」开启**本机密码锁**（SHA-256 哈希存本地，首次打开设置、可跳过、可记住）。
 - **字段与 Sun-Panel 统一**：标签的「描述信息」对应 Sun-Panel 的 `description` 字段，导出即 Sun-Panel 兼容格式，可直接平移回 Sun-Panel。
@@ -79,6 +79,8 @@ sun-nav/
 
 | 日期 | 部署地址 | 说明 |
 | --- | --- | --- |
+| 2026-11-24 | https://af5216a4a1143e54e.app.workbuddy.host/?sharecode=L6MHTSDGZ2 | **v1.4.2 内修订：完整备份导出文件名动态化（沿用 v1.4.2，不升版本，测试确认后推送 GitHub）**：① 文件名由 `SunNav-Backup<时间戳>.SunNav.json`（`SunNav` 重复）改为 `SunNav-Backup<时间戳>.<版本号>.json`，版本号取导出时的 `APP_VERSION`、升级自动跟随；② 系统性排查同类问题，把 `toFullBackup()` 内写死的 `appVersion: 'v1.4.2'` 一并改为动态取 `APP_VERSION`；③ 另两种导出名（`.SunPanel.json` / `bookmarks-*.html`）保持不变。jsdom 实测 15 项全通过（含模拟升级到 v1.9.0 验证版本号自动跟随） |
+| 2026-11-12 | https://af5216a4a1143e54e.app.workbuddy.host/?sharecode=L6MHTSDGZ2 | **v1.4.2 引擎删除修复 + 完整备份 + 弹窗滚动（先发在线预览、暂不推 GitHub，待测试确认后再推）**：① 修复「编辑引擎删除经常失效」——删除逻辑原用对象引用比较，而 `getEngines()` 每次重建对象导致永远删不掉（仅恢复默认后首次可删），改为按 name+url 稳定键比较，可连续删除多个；② 新增第三种导出格式「完整备份(含引擎)」（`SunNav-Backup<时间戳>.SunNav.json`，`format=sunnav-full`，含 groups/engines/engineSel），覆盖导入整体还原引擎配置、合并/追加按 name+url 并入并保留本机独有，旧的 Sun-Panel JSON / HTML 书签导出导入行为完全不变；③ 修复引擎编辑弹窗无滚动、引擎多时底部按钮不可达——`.modal-box` 增加 `max-height:calc(100vh - 40px)` + `overflow-y:auto`。jsdom 实测 21 项全通过。版本号 v1.4.2 |
 | 2026-11-12 | https://af5216a4a1143e54e.app.workbuddy.host/?sharecode=L6MHTSDGZ2 | **v1.4.1 搜索引擎云端同步 + 弹窗防误关（经确认直接推送 GitHub）**：① 自定义引擎列表与勾选状态并入 KV `data`（格式升级为 `{groups, engines, engineSel}`，**兼容旧数组**；导入/导出格式完全不变）；② 修复所有自定义引擎 id 写死 `custom` 导致多个自定义引擎勾选冲突的 bug，改为按名称+地址生成稳定 hash id，旧数据首次读取自动升级；③ **取消所有弹窗「点击外部关闭」行为**（添加/编辑站点、编辑引擎、管理面板），避免 PC 端从输入框按住左键拖出后松开导致编辑内容丢失，关闭仅保留明确的取消按钮；④ 修复 `renderEngines()` 重复绑定 change 监听导致重复写云端的问题。jsdom 实测 14 项全通过。版本号 v1.4.1 |
 | 2026-11-12 | https://af5216a4a1143e54e.app.workbuddy.host/?sharecode=L6MHTSDGZ2 | **v1.4.0 转正 + 建立测试版归档规则**：① 「自动获取站点信息」测试构建（v1.4.0-test.1）验证通过后**转正为 v1.4.0**，合并进正式版 `sun-nav/`；② **移除 Cloudflare Drop 专用交付物与文档**（Drop 为纯静态托管、无法运行 Worker `/api/meta`，不作为部署通道保留）；③ 归档规则：以后测试版在仓库 `sun-nav/` 下建 `test/` 目录推送，经 GitHub Pages 预览，不另开部署地址、不覆盖正式版；④ 本次测试版作为首个归档推入 `sun-nav/test/`。代码级更新，版本号 v1.4.0 |
 | 2026-11-07 | https://af5216a4a1143e54e.app.workbuddy.host/?sharecode=L6MHTSDGZ2 | **GitHub 连接器打通 + 清理历史残留 + 固化总记忆规则**：① GitHub 连接器重新授权成功，实测 `/user` = `lyqnihao`、`lyqnihao/notice` 具备 admin/push 权限，只读比对确认远端与本地 v1.3.2 完全一致；② **真实推送测试**：删除历史残留 `sun-nav/worker/`（早期旧版 Worker 结构，已迁至 `sun-nav/` 根、不参与部署），验证 clone→commit→push 全链路可用；③ 固化总记忆规则：每次修订回复开头直接给两个可点击链接、末尾询问是否更新 GitHub（确认后直推）、commit summary 用版本号/非代码级按原因提炼。属文档与仓库维护，功能代码未改，版本号保持 v1.3.2 |
@@ -88,6 +90,7 @@ sun-nav/
 
 | 版本 | 日期 | 说明 |
 | --- | --- | --- |
+| v1.4.2 | 2026-11-12 | **引擎删除修复 + 完整备份格式 + 弹窗滚动**：① 修复自定义引擎「点确定删除后不删除」（根因：`renderEngineList` 用对象引用比较，而 `getEngines()` 每次 `JSON.parse` 重建对象，仅恢复默认后首次可删），改按 name+url 稳定键比较，支持连续删除；② 新增第三种导出「完整备份(含引擎)」（本站专用 `sunnav-full` 格式，含站点 + 引擎 + 勾选），导入「覆盖」整体还原引擎、「合并/追加」并入并保留本机独有，解决迁移时自定义引擎丢失，旧两种导出格式零改动；③ 弹窗 `.modal-box` 加最大高度与内部滚动，引擎多时底部按钮可达。④（同版本内修订）完整备份导出文件名改为带动态版本号 `SunNav-Backup<时间戳>.<当前版本>.json`，并把备份内 `appVersion` 一并改为动态取 `APP_VERSION`，升级版本自动跟随、不写死。 |
 | v1.4.1 | 2026-11-12 | **搜索引擎云端同步 + 修复弹窗误关闭**：① KV `data` 从站点数组扩展为 `{groups, engines, engineSel}`，自定义引擎列表与勾选状态**随网址一起多端同步**，旧数组自动兼容、WebDAV 备份自动覆盖、Sun-Panel JSON / HTML 书签导入导出格式不变；② 修复自定义引擎 id 全部为 `custom` 的勾选冲突，改为稳定 hash id 并迁移旧勾选；③ **移除所有「点击弹窗外部即关闭」的行为**，编辑内容只通过明确的取消按钮关闭，杜绝拖动误关丢数据；④ change 监听只绑定一次。 |
 | v1.4.0 | 2026-11-12 | **自动获取站点信息（由 v1.4.0-test.1 转正）**：① 添加站点表单新增「⚡ 自动获取」按钮，只填网址即自动补齐名称 / 描述 / Logo，**只写空白字段、不覆盖手填内容**，字段始终开放可改、不自动保存；② **三级降级** A 同源 `/api/meta`（服务端抓取 `<title>`/`description`/`og:*`/`link[rel=icon]`）→ B 公共代理并行竞速 → C favicon 多源探测；③ **Worker 新增 `/api/meta` 分支**，与 `/api/data` 一致校验 `SITE_PASSWORD`，内置 SSRF 防护（拒绝私网 / 云元数据 / 非 80·443 端口、逐跳校验重定向最多 3 跳、6s 超时、300KB 上限、过滤 `data:` 空图标）；④ 前端 A 级请求自动附带站点密码；⑤ 测试期修复 `extractMeta()` 混合正则吞掉 `<title>` 导致标题为空的 bug。v1.4.0-test.1 为测试构建版本号，正式版跳过不用 |
 | v1.3.2 | 2026-11-06 | **初始数据精简 + 响应式侧边栏 + 通用HTML多地址导出/导入**：① **初始部署默认数据只保留「功能工具」「测试中」「外网应用」三个分类**，其余 20 个分类清理（仅影响无本地存档时的首次 seed）；② **响应式侧边栏**——电脑版（宽屏）默认开启菜单，手机版（≤760px）打开时默认关闭减少遮挡（init 与 resize 时按宽度自动设置）；③ **通用 HTML（书签）导出**：一个标签同时有外网/内网地址时，拆成「标题（外网）」「标题（内网）」多条超链接避免丢失；**导入时**识别该后缀并合并回同一标签的多个地址，且合并去重时对同名同链接条目补全省缺字段（如 lanUrl） |
@@ -287,13 +290,14 @@ python3 tools/prune-packages.py --list     # 打印当前保留清单
 ### 部署地址与存档
 
 - **部署超链接（在线预览，始终为最新版，可直接打开检查）**：https://af5216a4a1143e54e.app.workbuddy.host/?sharecode=L6MHTSDGZ2
-- **最新版代码包下载链接**：https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.4.1.zip?sharecode=L6MHTSDGZ2
+- **最新版代码包下载链接**：https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.4.2.zip?sharecode=L6MHTSDGZ2
 
 当前线上代码包存档（**最新版本在最前**）：
 
 | 版本 | 下载链接 |
 | --- | --- |
-| **v1.4.1（最新）** | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.4.1.zip?sharecode=L6MHTSDGZ2 |
+| **v1.4.2（最新）** | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.4.2.zip?sharecode=L6MHTSDGZ2 |
+| v1.4.1 | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.4.1.zip?sharecode=L6MHTSDGZ2 |
 | v1.4.0 | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.4.0.zip?sharecode=L6MHTSDGZ2 |
 | v1.3.2 | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.3.2.zip?sharecode=L6MHTSDGZ2 |
 | v1.3.1 | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.3.1.zip?sharecode=L6MHTSDGZ2 |
