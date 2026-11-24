@@ -277,6 +277,11 @@ a{color:inherit;text-decoration:none}
 .engine-list .engine-item .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .engine-list .engine-item .muted-url{color:var(--text-faint);font-size:11px;margin-left:4px}
 .engine-list .engine-item .del{color:#e5534b;cursor:pointer;font-size:12.5px;border:0;background:transparent}
+.engine-list .engine-item .ops{display:flex;gap:4px;flex-shrink:0}
+.engine-list .engine-item .edit,.engine-list .engine-item .mv{cursor:pointer;font-size:12px;border:1px solid var(--border);background:transparent;color:var(--text-dim);border-radius:5px;padding:2px 7px;white-space:nowrap}
+.engine-list .engine-item .edit:hover{color:var(--accent);border-color:var(--accent)}
+.engine-list .engine-item .mv:hover:not(:disabled){color:var(--text);border-color:var(--text-dim)}
+.engine-list .engine-item .mv:disabled{opacity:.35;cursor:default}
 .engine-add{margin-top:12px;border-top:1px solid var(--border);padding-top:12px}
 .engine-add .field{margin-bottom:10px}
 .engine-add label{display:block;font-size:12.5px;color:var(--text-dim);margin-bottom:5px}

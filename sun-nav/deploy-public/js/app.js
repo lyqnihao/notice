@@ -1,9 +1,9 @@
-/* ===== Sun Nav 导航页逻辑 v1.4.2（引擎删除修复 + 完整备份 + 弹窗滚动） ===== */
+/* ===== Sun Nav 导航页逻辑 v1.4.3（引擎编辑 + 排序） ===== */
 (function () {
 'use strict';
 
 /* ---------- 版本号（侧栏底部展示，修改时同步 README / data.js 头部注释） ---------- */
-var APP_VERSION = 'v1.4.2';
+var APP_VERSION = 'v1.4.3';
 /* 重置后保留的固定功能分组名 */
 var TOOL_GROUP_TITLE = '功能工具';
 
@@ -582,17 +582,53 @@ function renderEngines() {
 }
 
 /* 引擎管理弹窗 */
+var editingKey = null;   /* 正在编辑的引擎稳定键；null = 新增模式 */
+/* 编辑/排序需要可写列表：当前在用默认列表时，先复制一份默认引擎作为自定义列表 */
+function ensureCustomEngineList() {
+  var c = null;
+  try { c = JSON.parse(localStorage.getItem(ENGINE_CUSTOM_KEY) || 'null'); } catch (e) {}
+  if (Array.isArray(c) && c.length) return normalizeCustomEngines(c);
+  var seeded = ENGINES.map(function (en) { return { id: en.id, name: en.name, url: en.url }; });
+  saveCustomEngines(seeded);
+  return seeded;
+}
+function engineIndexOf(list, key) {
+  for (var i = 0; i < list.length; i++) { if (engineKey(list[i]) === key) return i; }
+  return -1;
+}
+function finishEngineEdit() {
+  editingKey = null;
+  $('enAdd').textContent = '添加';
+}
 function openEngineModal() {
   renderEngineList();
   $('enName').value = ''; $('enUrl').value = '';
+  finishEngineEdit();
   $('engineModal').classList.remove('hidden');
 }
 function renderEngineList() {
   var list = $('engineList');
   list.innerHTML = '';
-  getEngines().forEach(function (en) {
+  var engines = getEngines();
+  engines.forEach(function (en, idx) {
     var row = el('div', 'engine-item', '');
     var nm = el('span', 'nm', escapeHtml(en.name) + ' <span class="muted-url">' + escapeHtml(en.url) + '</span>');
+    var ops = el('span', 'ops', '');
+    var edit = el('button', 'edit', '编辑');
+    edit.addEventListener('click', function () {
+      editingKey = engineKey(en);
+      $('enName').value = en.name;
+      $('enUrl').value = en.url;
+      $('enAdd').textContent = '保存修改';
+      $('enName').focus();
+      toast('正在编辑「' + en.name + '」，改完点「保存修改」');
+    });
+    var up = el('button', 'mv', '上移');
+    up.disabled = idx === 0;
+    up.addEventListener('click', function () { moveEngine(engineKey(en), -1); });
+    var down = el('button', 'mv', '下移');
+    down.disabled = idx === engines.length - 1;
+    down.addEventListener('click', function () { moveEngine(engineKey(en), 1); });
     var del = el('button', 'del', '删除');
     del.addEventListener('click', function () {
       if (!confirm('删除搜索引擎「' + en.name + '」？')) return;
@@ -605,23 +641,54 @@ function renderEngineList() {
       saveData();
       renderEngineList(); renderEngines();
     });
-    row.appendChild(nm); row.appendChild(del);
+    ops.appendChild(edit); ops.appendChild(up); ops.appendChild(down);
+    row.appendChild(nm); row.appendChild(ops); row.appendChild(del);
     list.appendChild(row);
   });
+}
+/* 上移/下移排序：dir = -1 上移，1 下移 */
+function moveEngine(key, dir) {
+  var list = ensureCustomEngineList();
+  var idx = engineIndexOf(list, key);
+  var j = idx + dir;
+  if (idx < 0 || j < 0 || j >= list.length) return;
+  var t = list[idx]; list[idx] = list[j]; list[j] = t;
+  saveCustomEngines(list);
+  saveData();
+  renderEngineList(); renderEngines();
 }
 $('enAdd').addEventListener('click', function () {
   var name = $('enName').value.trim();
   var url = $('enUrl').value.trim();
   if (!name || !url) { toast('请填写名称与搜索地址'); return; }
-  saveCustomEngines(getEngines().concat([{ id: engineIdHash({ name: name, url: url }), name: name, url: url }]));
+  var list = ensureCustomEngineList();
+  if (editingKey) {
+    var idx = engineIndexOf(list, editingKey);
+    if (idx < 0) { toast('未找到要编辑的引擎'); finishEngineEdit(); return; }
+    var oldId = list[idx].id;
+    var wasSel = state.engines.has(oldId);
+    /* 自定义引擎 id 由「名称|地址」哈希生成，改名/改址后需同步迁移勾选状态 */
+    var newId = String(oldId).indexOf('custom_') === 0 ? engineIdHash({ name: name, url: url }) : oldId;
+    list[idx] = { id: newId, name: name, url: url };
+    saveCustomEngines(list);
+    if (wasSel && newId !== oldId) { state.engines.delete(oldId); state.engines.add(newId); }
+    finishEngineEdit();
+    toast('已保存修改');
+  } else {
+    var dup = list.some(function (x) { return x.name === name && x.url === url; });
+    if (dup) { toast('该引擎已存在'); return; }
+    list.push({ id: engineIdHash({ name: name, url: url }), name: name, url: url });
+    saveCustomEngines(list);
+    toast('已添加引擎');
+  }
   saveData();
   $('enName').value = ''; $('enUrl').value = '';
   renderEngineList(); renderEngines();
-  toast('已添加引擎');
 });
 $('enReset').addEventListener('click', function () {
   if (!confirm('恢复默认搜索引擎列表？')) return;
   try { localStorage.removeItem(ENGINE_CUSTOM_KEY); } catch (e) {}
+  finishEngineEdit();
   var validIds = {};
   ENGINES.forEach(function (en) { validIds[en.id] = 1; });
   Array.from(state.engines).forEach(function (id) { if (!validIds[id]) state.engines.delete(id); });
