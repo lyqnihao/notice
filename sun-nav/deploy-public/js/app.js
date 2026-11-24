@@ -1,9 +1,9 @@
-/* ===== Sun Nav 导航页逻辑 v1.4.0（自动获取站点信息） ===== */
+/* ===== Sun Nav 导航页逻辑 v1.4.1（引擎云端同步 + 弹窗防误关） ===== */
 (function () {
 'use strict';
 
 /* ---------- 版本号（侧栏底部展示，修改时同步 README / data.js 头部注释） ---------- */
-var APP_VERSION = 'v1.4.0';
+var APP_VERSION = 'v1.4.1';
 /* 重置后保留的固定功能分组名 */
 var TOOL_GROUP_TITLE = '功能工具';
 
@@ -20,15 +20,51 @@ var ENGINES = [
 ];
 var DEFAULT_ENGINE = 'bing';
 var ENGINE_CUSTOM_KEY = 'sun-nav-engines-custom';
+/* 自定义引擎 id 稳定化：v1.4.0 及以前所有自定义引擎 id 都写死为 'custom'，
+   导致多个自定义引擎的勾选状态互相冲突。这里按「名称|地址」生成稳定 hash id，
+   旧数据在首次读取时自动升级并写回，无需用户操作。 */
+function engineIdHash(en) {
+  var str = String((en && en.name) || '') + '|' + String((en && en.url) || '');
+  var h = 5381;
+  for (var i = 0; i < str.length; i++) h = ((h << 5) + h) ^ str.charCodeAt(i);
+  return 'custom_' + (h >>> 0).toString(36);
+}
+function normalizeCustomEngines(list) {
+  var seen = {};
+  return (list || []).map(function (en) {
+    var id = (en.id && en.id !== 'custom') ? en.id : engineIdHash(en);
+    while (seen[id]) id += '_' + Math.random().toString(36).slice(2, 5);
+    seen[id] = true;
+    return { id: id, name: en.name, url: en.url };
+  });
+}
+/* 旧勾选里的 'custom' 无法区分具体是哪一个，映射到当前全部自定义引擎 */
+function migrateEngineSelection(sel, engines) {
+  var out = [];
+  (sel || []).forEach(function (id) {
+    if (id === 'custom') {
+      engines.forEach(function (en) {
+        if (String(en.id).indexOf('custom_') === 0 && out.indexOf(en.id) < 0) out.push(en.id);
+      });
+    } else if (out.indexOf(id) < 0) out.push(id);
+  });
+  return out;
+}
 function getEngines() {
-  try {
-    var c = JSON.parse(localStorage.getItem(ENGINE_CUSTOM_KEY) || 'null');
-    if (Array.isArray(c) && c.length) return c;
-  } catch (e) {}
+  var c = null;
+  try { c = JSON.parse(localStorage.getItem(ENGINE_CUSTOM_KEY) || 'null'); } catch (e) {}
+  if (Array.isArray(c) && c.length) {
+    var fixed = normalizeCustomEngines(c);
+    if (JSON.stringify(fixed) !== JSON.stringify(c)) saveCustomEngines(fixed);
+    return fixed;
+  }
   return ENGINES;
 }
 function saveCustomEngines(list) {
   try { localStorage.setItem(ENGINE_CUSTOM_KEY, JSON.stringify(list)); } catch (e) {}
+}
+function persistEngineSelection() {
+  try { localStorage.setItem(LS_ENGINE, JSON.stringify(Array.from(state.engines))); } catch (e) {}
 }
 function engineUrl(en, q) {
   if (en.url.indexOf('{q}') >= 0) return en.url.replace('{q}', encodeURIComponent(q));
@@ -356,7 +392,8 @@ function loadData() {
 }
 function saveData() {
   if (backend.mode === 'kv') {
-    kvPut(state.groups).catch(function (e) { toast('云端保存失败：' + e.message); });
+    kvPut({ groups: state.groups, engines: getEngines(), engineSel: Array.from(state.engines) })
+      .catch(function (e) { toast('云端保存失败：' + e.message); });
     return;
   }
   try { localStorage.setItem(LS_DATA, JSON.stringify(state.groups)); } catch (e) {
@@ -373,18 +410,38 @@ async function kvGet(pw) {
   if (!r.ok) throw new Error('云端读取失败(' + r.status + ')');
   return r.json();
 }
-async function kvPut(groups) {
+async function kvPut(payload) {
   if (backend.mode !== 'kv') return;
   var url = '/api/data' + (backend.password ? ('?pw=' + encodeURIComponent(backend.password)) : '');
   var r = await fetch(url, {
-    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(groups)
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
   });
   if (r.status === 401) throw new Error('密码错误');
   if (!r.ok) throw new Error('云端保存失败(' + r.status + ')');
 }
 function applyData(d) {
-  if (Array.isArray(d) && d.length) state.groups = migrateGroups(d);
-  else state.groups = loadData();
+  if (Array.isArray(d) && d.length) {
+    // 旧格式：KV 里只有站点数组，引擎沿用本机配置（自动升级在下次保存时完成）
+    state.groups = migrateGroups(d);
+    return;
+  }
+  if (d && Array.isArray(d.groups)) {
+    state.groups = migrateGroups(d.groups);
+    if (Array.isArray(d.engines) && d.engines.length) {
+      saveCustomEngines(normalizeCustomEngines(d.engines));
+    }
+    var engines = getEngines();
+    if (Array.isArray(d.engineSel)) {
+      state.engines = new Set(migrateEngineSelection(d.engineSel, engines));
+    } else {
+      var valid = {};
+      engines.forEach(function (en) { valid[en.id || en.name] = 1; });
+      Array.from(state.engines).forEach(function (id) { if (!valid[id]) state.engines.delete(id); });
+    }
+    persistEngineSelection();   // 只写本机缓存，启动时不要反向触发云端写入
+    return;
+  }
+  state.groups = loadData();
 }
 function waitUnlock() { return new Promise(function (res) { unlockResolve = res; }); }
 function showLock() {
@@ -486,6 +543,7 @@ function applyTheme(t) {
 }
 
 /* ---------- 引擎选择 ---------- */
+var engineRowBound = false;
 function renderEngines() {
   var wrap = $('engineRow');
   wrap.innerHTML = '';
@@ -504,13 +562,17 @@ function renderEngines() {
   var edit = el('button', 'engine-edit', '编辑引擎');
   edit.addEventListener('click', function () { openEngineModal(); });
   wrap.appendChild(edit);
-  wrap.addEventListener('change', function (e) {
-    if (e.target && e.target.type === 'checkbox') {
-      if (e.target.checked) state.engines.add(e.target.value);
-      else state.engines.delete(e.target.value);
-      try { localStorage.setItem(LS_ENGINE, JSON.stringify(Array.from(state.engines))); } catch (er) {}
-    }
-  });
+  if (!engineRowBound) {
+    engineRowBound = true;
+    wrap.addEventListener('change', function (e) {
+      if (e.target && e.target.type === 'checkbox') {
+        if (e.target.checked) state.engines.add(e.target.value);
+        else state.engines.delete(e.target.value);
+        persistEngineSelection();
+        saveData();                 // KV 模式下随站点数据一起写入云端
+      }
+    });
+  }
 }
 
 /* 引擎管理弹窗 */
@@ -530,6 +592,8 @@ function renderEngineList() {
       if (!confirm('删除搜索引擎「' + en.name + '」？')) return;
       saveCustomEngines(getEngines().filter(function (x) { return x !== en; }));
       state.engines.delete(en.id || en.name);
+      persistEngineSelection();
+      saveData();
       renderEngineList(); renderEngines();
     });
     row.appendChild(nm); row.appendChild(del);
@@ -540,7 +604,8 @@ $('enAdd').addEventListener('click', function () {
   var name = $('enName').value.trim();
   var url = $('enUrl').value.trim();
   if (!name || !url) { toast('请填写名称与搜索地址'); return; }
-  saveCustomEngines(getEngines().concat([{ id: 'custom', name: name, url: url }]));
+  saveCustomEngines(getEngines().concat([{ id: engineIdHash({ name: name, url: url }), name: name, url: url }]));
+  saveData();
   $('enName').value = ''; $('enUrl').value = '';
   renderEngineList(); renderEngines();
   toast('已添加引擎');
@@ -548,11 +613,15 @@ $('enAdd').addEventListener('click', function () {
 $('enReset').addEventListener('click', function () {
   if (!confirm('恢复默认搜索引擎列表？')) return;
   try { localStorage.removeItem(ENGINE_CUSTOM_KEY); } catch (e) {}
+  var validIds = {};
+  ENGINES.forEach(function (en) { validIds[en.id] = 1; });
+  Array.from(state.engines).forEach(function (id) { if (!validIds[id]) state.engines.delete(id); });
+  persistEngineSelection();
+  saveData();
   renderEngineList(); renderEngines();
   toast('已恢复默认');
 });
 $('enClose').addEventListener('click', function () { $('engineModal').classList.add('hidden'); });
-$('engineModal').addEventListener('click', function (e) { if (e.target === this) this.classList.add('hidden'); });
 
 /* ---------- 分类树 ---------- */
 function renderTree() {
@@ -943,7 +1012,6 @@ function closeModal() {
   var mp = $('managePanel'); if (mp) mp.classList.add('hidden');
 }
 $('modalCancel').addEventListener('click', closeModal);
-$('modal').addEventListener('click', function (e) { if (e.target === this) closeModal(); });
 /* 自动获取按钮 + 手动编辑时移除自动标记（v1.4.0） */
 (function bindAutoMeta() {
   var btn = $('btnAutoMeta');
@@ -1140,13 +1208,6 @@ $('manageBtn').addEventListener('click', function (e) {
   e.stopPropagation();
   $('managePanel').classList.toggle('hidden');
   if (!$('managePanel').classList.contains('hidden')) refreshLocalPwState();
-});
-document.addEventListener('click', function (e) {
-  var p = $('managePanel');
-  if (p && !p.classList.contains('hidden') &&
-      !p.contains(e.target) && e.target !== $('manageBtn') && !$('manageBtn').contains(e.target)) {
-    p.classList.add('hidden');
-  }
 });
 $('manageExpJson').addEventListener('click', function () {
   var fname = 'SunNav-Data' + fmtDate(new Date()).replace(/[-: ]/g, '') + '.SunPanel.json';
@@ -1729,6 +1790,7 @@ async function init() {
   setEngineHidden(window.innerWidth <= 760);   // 窄屏默认收起引擎选项，节省空间
   applyResponsiveSidebar();                    // 窄屏默认关闭侧边栏菜单，电脑版默认开启
   await bootData();                            // 检测后端：Cloudflare KV 云端 或 本地降级
+  renderEngines();                             // 云端引擎配置可能已覆盖本机，按最终结果重渲染
   renderTree();
   renderContent();
 }
