@@ -1,9 +1,9 @@
-/* ===== Sun Nav 导航页逻辑 v1.4.3（引擎编辑 + 排序） ===== */
+/* ===== Sun Nav 导航页逻辑 v1.4.4（独立 favicon.svg） ===== */
 (function () {
 'use strict';
 
 /* ---------- 版本号（侧栏底部展示，修改时同步 README / data.js 头部注释） ---------- */
-var APP_VERSION = 'v1.4.3';
+var APP_VERSION = 'v1.4.4';
 /* 重置后保留的固定功能分组名 */
 var TOOL_GROUP_TITLE = '功能工具';
 

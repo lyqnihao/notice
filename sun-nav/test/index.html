@@ -3,8 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sun Nav 导航 · 自动获取测试版 v1.4.0-test.1</title>
-<link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="5" fill="%2327c3a2"/><rect x="6" y="6" width="5" height="5" rx="1.5" fill="white"/><rect x="13" y="6" width="5" height="5" rx="1.5" fill="white" opacity=".6"/><rect x="6" y="13" width="5" height="5" rx="1.5" fill="white" opacity=".6"/><rect x="13" y="13" width="5" height="5" rx="1.5" fill="white"/></svg>'>
+<title>Sun Nav 导航</title>
+<link rel="icon" href="favicon.ico?v=1.4.4-test.1&sharecode=L6MHTSDGZ2" sizes="any">
+<link rel="icon" type="image/png" href="favicon.png?v=1.4.4-test.1&sharecode=L6MHTSDGZ2" sizes="64x64">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=1.4.4-test.1&sharecode=L6MHTSDGZ2">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -36,7 +38,7 @@
 
   <!-- 管理面板：仿「引擎」展开区，收纳导入/导出/重置 -->
   <div id="managePanel" class="manage-panel hidden">
-    <p class="mp-note">支持本应用 / Sun-Panel 的 JSON、Sun-Panel 导出的 <b>.zip</b>（自动解压读取内部 config.json），以及浏览器 HTML 书签；可直接上传 zip 无需解压。</p>
+    <p class="mp-note">支持本应用 / Sun-Panel 的 JSON、本站「完整备份(含引擎)」、Sun-Panel 导出的 <b>.zip</b>（自动解压读取内部 config.json），以及浏览器 HTML 书签；可直接上传 zip 无需解压。</p>
     <div class="mp-section">
       <div class="mp-title">导入模式</div>
       <label><input type="radio" name="impMode" value="merge" checked> 合并去重（默认，保留现有）</label>
@@ -56,6 +58,7 @@
       <div class="mp-row">
         <button id="manageExpJson" class="btn ghost">Sun-Panel JSON</button>
         <button id="manageExpHtml" class="btn ghost">HTML 书签</button>
+        <button id="manageExpFull" class="btn ghost" title="站点 + 自定义引擎 + 勾选一起备份，仅本站可导入">完整备份(含引擎)</button>
       </div>
     </div>
     <div class="mp-section danger">
@@ -85,7 +88,7 @@
         </div>
         <div class="foot-row version-row">
           <span>当前版本</span>
-          <span id="appVersion" class="ver">-</span><span class="test-badge">TEST 测试版</span>
+          <span id="appVersion" class="ver">-</span>
         </div>
       </div>
     </aside>
@@ -151,7 +154,7 @@
 <div id="engineModal" class="modal hidden">
   <div class="modal-box">
     <h3>搜索引擎管理</h3>
-    <p class="muted">勾选项可增删；搜索地址用 <code>{q}</code> 表示关键词占位。</p>
+    <p class="muted">每条引擎均可「编辑」「上移/下移」排序、删除；搜索地址用 <code>{q}</code> 表示关键词占位。</p>
     <div id="engineList" class="engine-list"></div>
     <div class="engine-add">
       <div class="field"><label>新增引擎名称</label><input id="enName" type="text" placeholder="例如：夸克"></div>

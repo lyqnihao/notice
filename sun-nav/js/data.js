@@ -1,5 +1,5 @@
 // Sun Nav 导航页 - 站点数据
-// 版本: v1.4.3（引擎编辑 + 排序）
+// 版本: v1.4.4（独立 favicon.svg）
 window.SUN_PANEL_DATA = [
   {
     "title": "功能工具",

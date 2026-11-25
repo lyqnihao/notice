@@ -7,7 +7,7 @@
 >
 > ⚠️ **数据层随部署方式而变，且各部署相互独立**：只有 **Cloudflare Worker + KV** 部署具备**服务端数据库**（KV 键值库）与多端同步；在线预览站、GitHub Pages 等纯静态部署**没有服务端数据库**，数据存各自浏览器 localStorage，彼此不共享、也不跨设备同步。详见下方「数据层与部署独立性」。
 
-当前版本：**v1.4.3**
+当前版本：**v1.4.4**
 
 ## 功能特性
 
@@ -79,6 +79,7 @@ sun-nav/
 
 | 日期 | 部署地址 | 说明 |
 | --- | --- | --- |
+| 2026-11-25 | https://af5216a4a1143e54e.app.workbuddy.host/?sharecode=L6MHTSDGZ2 | **v1.4.4 独立 favicon 图标（测试版 v1.4.4-test.1 实测通过后转正）**：① 定位「浏览器标签不显示 logo」根因——浏览器请求图标不会带页面 `?sharecode=`，workbuddy 对无 sharecode 的资源请求返回 403「链接不完整」，图标根本下载不到；② 内联 `data:image/svg+xml` 在部分浏览器（尤其手机端）不显示，改为**独立图标文件**，同时提供 **ICO / PNG / SVG 三种格式**（手机浏览器多只认 ICO/PNG），并在 href 内嵌 `sharecode` + `?v=版本号` 参数兼顾鉴权与缓存刷新；③ 测试版置于原地址 `/test/` 子目录实测通过（不覆盖正式版、不推 GitHub），转正后测试版归档至 `sun-nav/test/`。正式版 `deploy-public/` 已移除 test/ 子目录。jsdom 无关（纯资源改动），线上三格式均验证 HTTP 200。版本号 v1.4.4 |
 | 2026-11-25 | https://af5216a4a1143e54e.app.workbuddy.host/?sharecode=L6MHTSDGZ2 | **v1.4.3 引擎编辑 + 排序（先发在线预览，待确认后推 GitHub）**：① 引擎管理弹窗每条引擎新增「编辑」按钮——点击回填表单进入编辑模式、底部按钮变「保存修改」，改完保存；默认引擎编辑时 id 保持不变（勾选状态不受影响），自定义引擎改名/改址后自动按新 name+url 重算 hash id 并迁移勾选状态；② 每条引擎新增「上移/下移」排序按钮，首行上移、末行下移自动禁用；③ 编辑/排序需可写引擎列表，当前在用默认列表时自动复制一份默认引擎为自定义列表（「恢复默认」仍可一键还原）；④ 新增同名同址引擎去重拦截；⑤ 删除、云端同步、导入导出行为不变。jsdom 实测 22 项全通过 |
 | 2026-11-24 | https://af5216a4a1143e54e.app.workbuddy.host/?sharecode=L6MHTSDGZ2 | **v1.4.2 内修订：完整备份导出文件名动态化（沿用 v1.4.2，不升版本，测试确认后推送 GitHub）**：① 文件名由 `SunNav-Backup<时间戳>.SunNav.json`（`SunNav` 重复）改为 `SunNav-Backup<时间戳>.<版本号>.json`，版本号取导出时的 `APP_VERSION`、升级自动跟随；② 系统性排查同类问题，把 `toFullBackup()` 内写死的 `appVersion: 'v1.4.2'` 一并改为动态取 `APP_VERSION`；③ 另两种导出名（`.SunPanel.json` / `bookmarks-*.html`）保持不变。jsdom 实测 15 项全通过（含模拟升级到 v1.9.0 验证版本号自动跟随） |
 | 2026-11-12 | https://af5216a4a1143e54e.app.workbuddy.host/?sharecode=L6MHTSDGZ2 | **v1.4.2 引擎删除修复 + 完整备份 + 弹窗滚动（先发在线预览、暂不推 GitHub，待测试确认后再推）**：① 修复「编辑引擎删除经常失效」——删除逻辑原用对象引用比较，而 `getEngines()` 每次重建对象导致永远删不掉（仅恢复默认后首次可删），改为按 name+url 稳定键比较，可连续删除多个；② 新增第三种导出格式「完整备份(含引擎)」（`SunNav-Backup<时间戳>.SunNav.json`，`format=sunnav-full`，含 groups/engines/engineSel），覆盖导入整体还原引擎配置、合并/追加按 name+url 并入并保留本机独有，旧的 Sun-Panel JSON / HTML 书签导出导入行为完全不变；③ 修复引擎编辑弹窗无滚动、引擎多时底部按钮不可达——`.modal-box` 增加 `max-height:calc(100vh - 40px)` + `overflow-y:auto`。jsdom 实测 21 项全通过。版本号 v1.4.2 |
@@ -91,6 +92,7 @@ sun-nav/
 
 | 版本 | 日期 | 说明 |
 | --- | --- | --- |
+| v1.4.4 | 2026-11-25 | **独立 favicon 图标（ICO/PNG/SVG 三格式）**：修复浏览器标签页不显示 logo——根因为浏览器请求 favicon 不带页面 `sharecode` 被 workbuddy 403 拦截，且手机浏览器多不支持 SVG 图标；改为独立 `favicon.ico/png/svg` 三格式，href 内嵌 sharecode 与版本号参数。测试版 `v1.4.4-test.1` 实测通过后转正，归档至 `sun-nav/test/`。 |
 | v1.4.3 | 2026-11-25 | **引擎编辑 + 排序**：① 引擎管理弹窗每条引擎新增「编辑」（回填表单、「保存修改」落盘，默认引擎 id 不变、自定义引擎自动迁移勾选）与「上移/下移」排序（首末行按钮禁用）；② 默认列表被编辑/排序时自动转为可写自定义列表，「恢复默认」一键还原；③ 新增同名同址去重；删除/云端同步/导入导出行为不变。 |
 | v1.4.2 | 2026-11-12 | **引擎删除修复 + 完整备份格式 + 弹窗滚动**：① 修复自定义引擎「点确定删除后不删除」（根因：`renderEngineList` 用对象引用比较，而 `getEngines()` 每次 `JSON.parse` 重建对象，仅恢复默认后首次可删），改按 name+url 稳定键比较，支持连续删除；② 新增第三种导出「完整备份(含引擎)」（本站专用 `sunnav-full` 格式，含站点 + 引擎 + 勾选），导入「覆盖」整体还原引擎、「合并/追加」并入并保留本机独有，解决迁移时自定义引擎丢失，旧两种导出格式零改动；③ 弹窗 `.modal-box` 加最大高度与内部滚动，引擎多时底部按钮可达。④（同版本内修订）完整备份导出文件名改为带动态版本号 `SunNav-Backup<时间戳>.<当前版本>.json`，并把备份内 `appVersion` 一并改为动态取 `APP_VERSION`，升级版本自动跟随、不写死。 |
 | v1.4.1 | 2026-11-12 | **搜索引擎云端同步 + 修复弹窗误关闭**：① KV `data` 从站点数组扩展为 `{groups, engines, engineSel}`，自定义引擎列表与勾选状态**随网址一起多端同步**，旧数组自动兼容、WebDAV 备份自动覆盖、Sun-Panel JSON / HTML 书签导入导出格式不变；② 修复自定义引擎 id 全部为 `custom` 的勾选冲突，改为稳定 hash id 并迁移旧勾选；③ **移除所有「点击弹窗外部即关闭」的行为**，编辑内容只通过明确的取消按钮关闭，杜绝拖动误关丢数据；④ change 监听只绑定一次。 |
@@ -293,13 +295,14 @@ python3 tools/prune-packages.py --list     # 打印当前保留清单
 ### 部署地址与存档
 
 - **部署超链接（在线预览，始终为最新版，可直接打开检查）**：https://af5216a4a1143e54e.app.workbuddy.host/?sharecode=L6MHTSDGZ2
-- **最新版代码包下载链接**：https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.4.3.zip?sharecode=L6MHTSDGZ2
+- **最新版代码包下载链接**：https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.4.4.zip?sharecode=L6MHTSDGZ2
 
 当前线上代码包存档（**最新版本在最前**）：
 
 | 版本 | 下载链接 |
 | --- | --- |
-| **v1.4.3（最新）** | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.4.3.zip?sharecode=L6MHTSDGZ2 |
+| **v1.4.4（最新）** | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.4.4.zip?sharecode=L6MHTSDGZ2 |
+| v1.4.3 | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.4.3.zip?sharecode=L6MHTSDGZ2 |
 | v1.4.2 | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.4.2.zip?sharecode=L6MHTSDGZ2 |
 | v1.4.1 | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.4.1.zip?sharecode=L6MHTSDGZ2 |
 | v1.4.0 | https://af5216a4a1143e54e.app.workbuddy.host/sun-nav-v1.4.0.zip?sharecode=L6MHTSDGZ2 |

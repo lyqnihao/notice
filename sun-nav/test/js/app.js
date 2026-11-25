@@ -1,9 +1,9 @@
-/* ===== Sun Nav 导航页逻辑 v1.4.0-test.1（自动获取站点信息 · 测试版） ===== */
+/* ===== Sun Nav 导航页逻辑 v1.4.4-test.1（独立 favicon.svg · 测试版） ===== */
 (function () {
 'use strict';
 
 /* ---------- 版本号（侧栏底部展示，修改时同步 README / data.js 头部注释） ---------- */
-var APP_VERSION = 'v1.4.0-test.1';
+var APP_VERSION = 'v1.4.4-test.1';
 /* 重置后保留的固定功能分组名 */
 var TOOL_GROUP_TITLE = '功能工具';
 
@@ -20,15 +20,57 @@ var ENGINES = [
 ];
 var DEFAULT_ENGINE = 'bing';
 var ENGINE_CUSTOM_KEY = 'sun-nav-engines-custom';
+/* 自定义引擎 id 稳定化：v1.4.0 及以前所有自定义引擎 id 都写死为 'custom'，
+   导致多个自定义引擎的勾选状态互相冲突。这里按「名称|地址」生成稳定 hash id，
+   旧数据在首次读取时自动升级并写回，无需用户操作。 */
+function engineIdHash(en) {
+  var str = String((en && en.name) || '') + '|' + String((en && en.url) || '');
+  var h = 5381;
+  for (var i = 0; i < str.length; i++) h = ((h << 5) + h) ^ str.charCodeAt(i);
+  return 'custom_' + (h >>> 0).toString(36);
+}
+function normalizeCustomEngines(list) {
+  var seen = {};
+  return (list || []).map(function (en) {
+    var id = (en.id && en.id !== 'custom') ? en.id : engineIdHash(en);
+    while (seen[id]) id += '_' + Math.random().toString(36).slice(2, 5);
+    seen[id] = true;
+    return { id: id, name: en.name, url: en.url };
+  });
+}
+/* 旧勾选里的 'custom' 无法区分具体是哪一个，映射到当前全部自定义引擎 */
+function migrateEngineSelection(sel, engines) {
+  var out = [];
+  (sel || []).forEach(function (id) {
+    if (id === 'custom') {
+      engines.forEach(function (en) {
+        if (String(en.id).indexOf('custom_') === 0 && out.indexOf(en.id) < 0) out.push(en.id);
+      });
+    } else if (out.indexOf(id) < 0) out.push(id);
+  });
+  return out;
+}
 function getEngines() {
-  try {
-    var c = JSON.parse(localStorage.getItem(ENGINE_CUSTOM_KEY) || 'null');
-    if (Array.isArray(c) && c.length) return c;
-  } catch (e) {}
+  var c = null;
+  try { c = JSON.parse(localStorage.getItem(ENGINE_CUSTOM_KEY) || 'null'); } catch (e) {}
+  if (Array.isArray(c) && c.length) {
+    var fixed = normalizeCustomEngines(c);
+    if (JSON.stringify(fixed) !== JSON.stringify(c)) saveCustomEngines(fixed);
+    return fixed;
+  }
   return ENGINES;
 }
 function saveCustomEngines(list) {
   try { localStorage.setItem(ENGINE_CUSTOM_KEY, JSON.stringify(list)); } catch (e) {}
+}
+function persistEngineSelection() {
+  try { localStorage.setItem(LS_ENGINE, JSON.stringify(Array.from(state.engines))); } catch (e) {}
+}
+/* 引擎稳定唯一键：优先 id，回退 name+url（用于删除/去重的引用无关比较） */
+function engineKey(en) {
+  if (!en) return '';
+  if (en.id && en.id !== 'custom') return 'id:' + en.id;
+  return 'nu:' + String(en.name || '') + '||' + String(en.url || '');
 }
 function engineUrl(en, q) {
   if (en.url.indexOf('{q}') >= 0) return en.url.replace('{q}', encodeURIComponent(q));
@@ -79,7 +121,7 @@ function faviconFor(url) {
 }
 
 /* ================================================================
- * 自动获取站点信息（测试版 v1.4.0-test.1）
+ * 自动获取站点信息（v1.4.0）
  * ----------------------------------------------------------------
  * 三级降级，任一成功即填充；只写【空白】字段，绝不覆盖用户已填内容：
  *   A  同源 Worker  /api/meta?url=   —— Cloudflare Worker 部署时，服务端抓取，最可靠
@@ -165,9 +207,10 @@ function fetchMetaText(url, ms) {
   }, function (e) { clearTimeout(timer); throw e; });
 }
 
-/* A：同源 Worker 接口（正式 Cloudflare 部署时可用；纯静态部署返回 404/HTML 时自动跳过） */
+/* A：同源 Worker 接口（Cloudflare 部署时可用，随请求带站点密码；纯静态部署返回 404/HTML 时自动跳过） */
 function tryWorkerMeta(target) {
-  return fetchMetaText('/api/meta?url=' + encodeURIComponent(target), 8000).then(function (txt) {
+  var pw = (backend.mode === 'kv' && backend.password) ? ('&pw=' + encodeURIComponent(backend.password)) : '';
+  return fetchMetaText('/api/meta?url=' + encodeURIComponent(target) + pw, 8000).then(function (txt) {
     var j = JSON.parse(txt);
     if (j && j.ok) {
       return { title: cleanMetaText(j.title), description: cleanMetaText(j.description),
@@ -355,7 +398,8 @@ function loadData() {
 }
 function saveData() {
   if (backend.mode === 'kv') {
-    kvPut(state.groups).catch(function (e) { toast('云端保存失败：' + e.message); });
+    kvPut({ groups: state.groups, engines: getEngines(), engineSel: Array.from(state.engines) })
+      .catch(function (e) { toast('云端保存失败：' + e.message); });
     return;
   }
   try { localStorage.setItem(LS_DATA, JSON.stringify(state.groups)); } catch (e) {
@@ -372,18 +416,38 @@ async function kvGet(pw) {
   if (!r.ok) throw new Error('云端读取失败(' + r.status + ')');
   return r.json();
 }
-async function kvPut(groups) {
+async function kvPut(payload) {
   if (backend.mode !== 'kv') return;
   var url = '/api/data' + (backend.password ? ('?pw=' + encodeURIComponent(backend.password)) : '');
   var r = await fetch(url, {
-    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(groups)
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
   });
   if (r.status === 401) throw new Error('密码错误');
   if (!r.ok) throw new Error('云端保存失败(' + r.status + ')');
 }
 function applyData(d) {
-  if (Array.isArray(d) && d.length) state.groups = migrateGroups(d);
-  else state.groups = loadData();
+  if (Array.isArray(d) && d.length) {
+    // 旧格式：KV 里只有站点数组，引擎沿用本机配置（自动升级在下次保存时完成）
+    state.groups = migrateGroups(d);
+    return;
+  }
+  if (d && Array.isArray(d.groups)) {
+    state.groups = migrateGroups(d.groups);
+    if (Array.isArray(d.engines) && d.engines.length) {
+      saveCustomEngines(normalizeCustomEngines(d.engines));
+    }
+    var engines = getEngines();
+    if (Array.isArray(d.engineSel)) {
+      state.engines = new Set(migrateEngineSelection(d.engineSel, engines));
+    } else {
+      var valid = {};
+      engines.forEach(function (en) { valid[en.id || en.name] = 1; });
+      Array.from(state.engines).forEach(function (id) { if (!valid[id]) state.engines.delete(id); });
+    }
+    persistEngineSelection();   // 只写本机缓存，启动时不要反向触发云端写入
+    return;
+  }
+  state.groups = loadData();
 }
 function waitUnlock() { return new Promise(function (res) { unlockResolve = res; }); }
 function showLock() {
@@ -485,6 +549,7 @@ function applyTheme(t) {
 }
 
 /* ---------- 引擎选择 ---------- */
+var engineRowBound = false;
 function renderEngines() {
   var wrap = $('engineRow');
   wrap.innerHTML = '';
@@ -503,55 +568,136 @@ function renderEngines() {
   var edit = el('button', 'engine-edit', '编辑引擎');
   edit.addEventListener('click', function () { openEngineModal(); });
   wrap.appendChild(edit);
-  wrap.addEventListener('change', function (e) {
-    if (e.target && e.target.type === 'checkbox') {
-      if (e.target.checked) state.engines.add(e.target.value);
-      else state.engines.delete(e.target.value);
-      try { localStorage.setItem(LS_ENGINE, JSON.stringify(Array.from(state.engines))); } catch (er) {}
-    }
-  });
+  if (!engineRowBound) {
+    engineRowBound = true;
+    wrap.addEventListener('change', function (e) {
+      if (e.target && e.target.type === 'checkbox') {
+        if (e.target.checked) state.engines.add(e.target.value);
+        else state.engines.delete(e.target.value);
+        persistEngineSelection();
+        saveData();                 // KV 模式下随站点数据一起写入云端
+      }
+    });
+  }
 }
 
 /* 引擎管理弹窗 */
+var editingKey = null;   /* 正在编辑的引擎稳定键；null = 新增模式 */
+/* 编辑/排序需要可写列表：当前在用默认列表时，先复制一份默认引擎作为自定义列表 */
+function ensureCustomEngineList() {
+  var c = null;
+  try { c = JSON.parse(localStorage.getItem(ENGINE_CUSTOM_KEY) || 'null'); } catch (e) {}
+  if (Array.isArray(c) && c.length) return normalizeCustomEngines(c);
+  var seeded = ENGINES.map(function (en) { return { id: en.id, name: en.name, url: en.url }; });
+  saveCustomEngines(seeded);
+  return seeded;
+}
+function engineIndexOf(list, key) {
+  for (var i = 0; i < list.length; i++) { if (engineKey(list[i]) === key) return i; }
+  return -1;
+}
+function finishEngineEdit() {
+  editingKey = null;
+  $('enAdd').textContent = '添加';
+}
 function openEngineModal() {
   renderEngineList();
   $('enName').value = ''; $('enUrl').value = '';
+  finishEngineEdit();
   $('engineModal').classList.remove('hidden');
 }
 function renderEngineList() {
   var list = $('engineList');
   list.innerHTML = '';
-  getEngines().forEach(function (en) {
+  var engines = getEngines();
+  engines.forEach(function (en, idx) {
     var row = el('div', 'engine-item', '');
     var nm = el('span', 'nm', escapeHtml(en.name) + ' <span class="muted-url">' + escapeHtml(en.url) + '</span>');
+    var ops = el('span', 'ops', '');
+    var edit = el('button', 'edit', '编辑');
+    edit.addEventListener('click', function () {
+      editingKey = engineKey(en);
+      $('enName').value = en.name;
+      $('enUrl').value = en.url;
+      $('enAdd').textContent = '保存修改';
+      $('enName').focus();
+      toast('正在编辑「' + en.name + '」，改完点「保存修改」');
+    });
+    var up = el('button', 'mv', '上移');
+    up.disabled = idx === 0;
+    up.addEventListener('click', function () { moveEngine(engineKey(en), -1); });
+    var down = el('button', 'mv', '下移');
+    down.disabled = idx === engines.length - 1;
+    down.addEventListener('click', function () { moveEngine(engineKey(en), 1); });
     var del = el('button', 'del', '删除');
     del.addEventListener('click', function () {
       if (!confirm('删除搜索引擎「' + en.name + '」？')) return;
-      saveCustomEngines(getEngines().filter(function (x) { return x !== en; }));
+      // 修复：getEngines() 每次重建对象，引用比较（x !== en）永远成立导致删不掉；
+      // 改为按稳定的 name+url 复合键比较，确保真正移除目标引擎。
+      var key = engineKey(en);
+      saveCustomEngines(getEngines().filter(function (x) { return engineKey(x) !== key; }));
       state.engines.delete(en.id || en.name);
+      persistEngineSelection();
+      saveData();
       renderEngineList(); renderEngines();
     });
-    row.appendChild(nm); row.appendChild(del);
+    ops.appendChild(edit); ops.appendChild(up); ops.appendChild(down);
+    row.appendChild(nm); row.appendChild(ops); row.appendChild(del);
     list.appendChild(row);
   });
+}
+/* 上移/下移排序：dir = -1 上移，1 下移 */
+function moveEngine(key, dir) {
+  var list = ensureCustomEngineList();
+  var idx = engineIndexOf(list, key);
+  var j = idx + dir;
+  if (idx < 0 || j < 0 || j >= list.length) return;
+  var t = list[idx]; list[idx] = list[j]; list[j] = t;
+  saveCustomEngines(list);
+  saveData();
+  renderEngineList(); renderEngines();
 }
 $('enAdd').addEventListener('click', function () {
   var name = $('enName').value.trim();
   var url = $('enUrl').value.trim();
   if (!name || !url) { toast('请填写名称与搜索地址'); return; }
-  saveCustomEngines(getEngines().concat([{ id: 'custom', name: name, url: url }]));
+  var list = ensureCustomEngineList();
+  if (editingKey) {
+    var idx = engineIndexOf(list, editingKey);
+    if (idx < 0) { toast('未找到要编辑的引擎'); finishEngineEdit(); return; }
+    var oldId = list[idx].id;
+    var wasSel = state.engines.has(oldId);
+    /* 自定义引擎 id 由「名称|地址」哈希生成，改名/改址后需同步迁移勾选状态 */
+    var newId = String(oldId).indexOf('custom_') === 0 ? engineIdHash({ name: name, url: url }) : oldId;
+    list[idx] = { id: newId, name: name, url: url };
+    saveCustomEngines(list);
+    if (wasSel && newId !== oldId) { state.engines.delete(oldId); state.engines.add(newId); }
+    finishEngineEdit();
+    toast('已保存修改');
+  } else {
+    var dup = list.some(function (x) { return x.name === name && x.url === url; });
+    if (dup) { toast('该引擎已存在'); return; }
+    list.push({ id: engineIdHash({ name: name, url: url }), name: name, url: url });
+    saveCustomEngines(list);
+    toast('已添加引擎');
+  }
+  saveData();
   $('enName').value = ''; $('enUrl').value = '';
   renderEngineList(); renderEngines();
-  toast('已添加引擎');
 });
 $('enReset').addEventListener('click', function () {
   if (!confirm('恢复默认搜索引擎列表？')) return;
   try { localStorage.removeItem(ENGINE_CUSTOM_KEY); } catch (e) {}
+  finishEngineEdit();
+  var validIds = {};
+  ENGINES.forEach(function (en) { validIds[en.id] = 1; });
+  Array.from(state.engines).forEach(function (id) { if (!validIds[id]) state.engines.delete(id); });
+  persistEngineSelection();
+  saveData();
   renderEngineList(); renderEngines();
   toast('已恢复默认');
 });
 $('enClose').addEventListener('click', function () { $('engineModal').classList.add('hidden'); });
-$('engineModal').addEventListener('click', function (e) { if (e.target === this) this.classList.add('hidden'); });
 
 /* ---------- 分类树 ---------- */
 function renderTree() {
@@ -942,8 +1088,7 @@ function closeModal() {
   var mp = $('managePanel'); if (mp) mp.classList.add('hidden');
 }
 $('modalCancel').addEventListener('click', closeModal);
-$('modal').addEventListener('click', function (e) { if (e.target === this) closeModal(); });
-/* 自动获取按钮 + 手动编辑时移除自动标记（测试版 v1.4.0-test.1） */
+/* 自动获取按钮 + 手动编辑时移除自动标记（v1.4.0） */
 (function bindAutoMeta() {
   var btn = $('btnAutoMeta');
   if (btn) btn.addEventListener('click', autoFetchMeta);
@@ -1134,18 +1279,26 @@ function toBookmarksHtml(groups) {
   return L.join('\n');
 }
 /* 管理面板：把导入/导出/重置收进「管理」按钮展开区（仿引擎） */
+/* 本站完整备份格式（v1.4.2）：站点 + 自定义引擎 + 勾选状态一并导出/还原，
+   与 KV / WebDAV 的 {groups, engines, engineSel} 结构一致。旧的 Sun-Panel JSON
+   与 HTML 书签两种格式保持不变，三者并存、互不覆盖。 */
+var FULL_FORMAT = 'sunnav-full';
+function toFullBackup() {
+  return {
+    format: FULL_FORMAT,
+    version: 2,
+    appVersion: APP_VERSION,
+    exportTime: fmtDate(new Date()),
+    groups: state.groups,
+    engines: getEngines(),
+    engineSel: Array.from(state.engines)
+  };
+}
 function hideManage() { var p = $('managePanel'); if (p) p.classList.add('hidden'); }
 $('manageBtn').addEventListener('click', function (e) {
   e.stopPropagation();
   $('managePanel').classList.toggle('hidden');
   if (!$('managePanel').classList.contains('hidden')) refreshLocalPwState();
-});
-document.addEventListener('click', function (e) {
-  var p = $('managePanel');
-  if (p && !p.classList.contains('hidden') &&
-      !p.contains(e.target) && e.target !== $('manageBtn') && !$('manageBtn').contains(e.target)) {
-    p.classList.add('hidden');
-  }
 });
 $('manageExpJson').addEventListener('click', function () {
   var fname = 'SunNav-Data' + fmtDate(new Date()).replace(/[-: ]/g, '') + '.SunPanel.json';
@@ -1154,6 +1307,14 @@ $('manageExpJson').addEventListener('click', function () {
 $('manageExpHtml').addEventListener('click', function () {
   var fname = 'bookmarks-' + fmtDate(new Date()).replace(/[-: ]/g, '') + '.html';
   doExport(fname, toBookmarksHtml(state.groups), 'text/html');
+});
+/* 完整备份文件名：SunNav-Backup<时间戳>.<当前版本>.json
+   版本号取 APP_VERSION，升级版本后自动跟随，不写死 */
+function fullBackupFilename() {
+  return 'SunNav-Backup' + fmtDate(new Date()).replace(/[-: ]/g, '') + '.' + APP_VERSION + '.json';
+}
+$('manageExpFull').addEventListener('click', function () {
+  doExport(fullBackupFilename(), JSON.stringify(toFullBackup(), null, 2), 'application/json');
 });
 function dedupKey(it) { return ((it.title || '').trim().toLowerCase() + '||' + (it.url || '').trim().toLowerCase()); }
 /* 合并去重：同名分类并入现有，同名同链接自动排除 */
@@ -1252,6 +1413,18 @@ function parseBookmarksHtml(htmlText) {
   parseBookmarkDl(root, groups, null);
   return groups.filter(function (g) { return g.items.length > 0; });
 }
+/* 识别本站完整备份格式（v1.4.2），返回 {groups, engines, engineSel}；非该格式返回 null */
+function parseFullBackup(text) {
+  var s = String(text || '').trim();
+  if (s.charAt(0) !== '{') return null;
+  try {
+    var d = JSON.parse(text);
+    if (d && d.format === FULL_FORMAT && Array.isArray(d.groups)) {
+      return { groups: d.groups, engines: d.engines || [], engineSel: d.engineSel || [] };
+    }
+  } catch (e) {}
+  return null;
+}
 /* 自动识别导入来源：JSON（本应用/Sun-Panel）或浏览器书签 HTML */
 function parseAnyImport(text) {
   var s = text.trim();
@@ -1263,19 +1436,50 @@ function parseAnyImport(text) {
   }
   throw new Error('无法识别的格式（需 JSON 或浏览器书签 HTML）');
 }
+/* 应用完整备份里的引擎配置：
+   覆盖模式 = 用备份的引擎列表与勾选整体替换；合并/追加 = 按 name+url 并入，保留本机独有引擎。*/
+function applyFullBackupEngines(full, mode) {
+  if (!full) return;
+  var incoming = normalizeCustomEngines(full.engines || []);
+  if (mode === 'replace') {
+    saveCustomEngines(incoming);
+    var all = getEngines();
+    state.engines = new Set(migrateEngineSelection(full.engineSel || [], all));
+  } else {
+    var cur = getEngines().slice();
+    var keys = {};
+    cur.forEach(function (en) { keys[engineKey(en)] = 1; });
+    incoming.forEach(function (en) { var k = engineKey(en); if (!keys[k]) { cur.push(en); keys[k] = 1; } });
+    saveCustomEngines(cur);
+    var all2 = getEngines();
+    (full.engineSel || []).forEach(function (id) { state.engines.add(id); });
+    // 丢弃指向已不存在引擎的勾选
+    var valid = {};
+    all2.forEach(function (en) { valid[en.id || en.name] = 1; });
+    Array.from(state.engines).forEach(function (id) { if (!valid[id]) state.engines.delete(id); });
+  }
+  persistEngineSelection();
+  renderEngines();
+}
 function doImport(text) {
   var mode = currentMode();
-  var incoming = parseAnyImport(text);
+  var full = parseFullBackup(text);       // 完整备份（含引擎）优先识别
+  var incoming = full ? full.groups : parseAnyImport(text);
   if (!incoming.length) throw new Error('没有可导入的站点');
+  var confirmMsg = mode === 'replace'
+    ? (full ? '覆盖导入将清空当前全部站点与搜索引擎配置并替换为备份内容，确定？'
+            : '覆盖导入将清空当前全部站点并替换为备份内容，确定？')
+    : null;
   if (mode === 'replace') {
-    if (!confirm('覆盖导入将清空当前全部站点并替换为备份内容，确定？')) { closeModal(); return; }
+    if (!confirm(confirmMsg)) { closeModal(); return; }
     state.groups = incoming;
   } else if (mode === 'merge') {
     state.groups = mergeGroups(state.groups, incoming);
   } else {
     state.groups = state.groups.concat(appendGroups(incoming, state.groups));
   }
-  saveData(); renderTree(); renderContent();
+  applyFullBackupEngines(full, mode);      // 非完整备份时为空操作，旧两种格式行为不变
+  saveData(); renderTree(); renderContent(); renderEngines();
   toast(mode === 'replace' ? '已覆盖导入' : mode === 'merge' ? '已合并去重导入' : '已追加导入');
   closeModal();
 }
@@ -1728,6 +1932,7 @@ async function init() {
   setEngineHidden(window.innerWidth <= 760);   // 窄屏默认收起引擎选项，节省空间
   applyResponsiveSidebar();                    // 窄屏默认关闭侧边栏菜单，电脑版默认开启
   await bootData();                            // 检测后端：Cloudflare KV 云端 或 本地降级
+  renderEngines();                             // 云端引擎配置可能已覆盖本机，按最终结果重渲染
   renderTree();
   renderContent();
 }
